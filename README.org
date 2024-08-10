@@ -15,7 +15,7 @@
 
 视频:
 
-[[./preview.mp4]]
+[[./preview.gif]]
 
 * 支持的字典列表
 - 下载字典: [[https://github.com/program-in-chinese/vscode_english_chinese_dictionary/tree/master/src/%E8%AF%8D%E5%85%B8%E6%95%B0%E6%8D%AE][vscode_english_chinese_dictionary/src/词典数据 at master · program-in-chinese/vsc...]]
