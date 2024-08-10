@@ -8,8 +8,8 @@
 
 使用 Emacs modeline 中查看 字典, 帮助你了解更多语言.
 
-效果:
-[[file:./preview.mp4][Preview]]
+* Preview
+[[./preview.mp4]]
 
 * 支持的字典列表
 - 下载字典: [[https://github.com/program-in-chinese/vscode_english_chinese_dictionary/tree/master/src/%E8%AF%8D%E5%85%B8%E6%95%B0%E6%8D%AE][vscode_english_chinese_dictionary/src/词典数据 at master · program-in-chinese/vsc...]]
@@ -42,18 +42,34 @@
 (global-dict-line-mode t)
 #+end_src
 
+* 参数
+- dict-line-dict-directory
+  字典文件目录, 必须的
+- dict-line-idle-delay
+  光标空闲多长开始查找单词,
+  默认: 1 秒
+- dict-line-icon
+  modeline 显示图标
+- dict-line-more-icon
+  不同词性图标
+- dict-line-no-results-string
+  没有找到显示内容
+- dict-line-dict-extension
+  字典类型, 用户一般不需要设置这个选项
+
 * TODO List
-- [ ] 异步
-- [ ] 支持更多 Dict 类型
-- [ ] 外部索引, 例如: ripgre, grep 等等
-- [ ] 支持更多显示方式, 例如: posframe, popup, overlay
-- [ ] 支持更多后端, 例如: sdcv
+- [  ] 异步
+- [  ] 支持更多 Dict 类型
+- [  ] 外部索引, 例如: ripgre, grep 等等
+- [  ] 支持更多显示方式, 例如: posframe, popup, overlay
+- [  ] 支持更多后端, 例如: sdcv
 
 * 后记
 解析速度蛮不错的, 感觉不到卡顿.
 
 * 贡献
-欢迎 Pr.
+欢迎 PR.
+
 Welcome Pull request.
 
 * ChangLog
