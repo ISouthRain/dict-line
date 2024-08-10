@@ -24,7 +24,7 @@
   :type 'string
   :group 'dict-line)
 
-(defcustom dict-line-no-results-string "No Results"
+(defcustom dict-line-no-results-string "No Results "
   "No Results Dict."
   :type 'string
   :group 'dict-line)
@@ -55,7 +55,9 @@
           (progn
             ;; 筛检, 减少 \\n 出现
             (setq dict-line--translation (concat dict-line-icon (replace-regexp-in-string "\\\\\\\\n" dict-line-more-icon translation)))
-            ;; TODO 继续筛检,  减少 \ 符号的出现
+            ;; 筛检, 去行除末尾 ", 中的 , 防止与其它 modeline 内容相连
+            (setq dict-line--translation (replace-regexp-in-string "\"," "\" " dict-line--translation))
+            ;; 筛检,  减少 不同词性 \ 符号的出现
             (setq dict-line--translation (replace-regexp-in-string "\\\\" "" dict-line--translation))
             (force-mode-line-update))
         (setq dict-line--translation (concat dict-line-icon dict-line-no-results-string))
