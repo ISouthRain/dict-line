@@ -9,6 +9,12 @@
 使用 Emacs modeline 中查看 字典, 帮助你了解更多语言.
 
 * Preview
+图:
+
+[[./preview.png]]
+
+视频:
+
 [[./preview.mp4]]
 
 * 支持的字典列表
