@@ -93,6 +93,7 @@
       (progn
         (add-hook 'post-command-hook 'dict-line-set-timer nil t)
         (unless (memq 'dict-line--translation global-mode-string)
+          (setq global-mode-string (append global-mode-string '("")))  ;; 添加一个空字符串
           (setq global-mode-string (append global-mode-string '(dict-line--translation)))))
     (remove-hook 'post-command-hook 'dict-line-set-timer t)
     (setq global-mode-string (remq 'dict-line--translation global-mode-string))))
