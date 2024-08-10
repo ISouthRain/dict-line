@@ -55,13 +55,13 @@
   光标空闲多长开始查找单词,
   默认: 1 秒
 - dict-line-icon
-  modeline 显示图标
+  在 modeline 显示字典的图标
 - dict-line-more-icon
   不同词性图标
 - dict-line-no-results-string
-  没有找到显示内容
+  字典文件没有找到单词时 显示的内容
 - dict-line-dict-extension
-  字典类型, 用户一般不需要设置这个选项
+  字典文件扩展名类型, 用户一般不需要设置这个选项
 
 * TODO List
 - [  ] 异步
