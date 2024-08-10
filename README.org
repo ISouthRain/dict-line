@@ -1,0 +1,60 @@
+# -*- coding: utf-8; -*-
+
+ *大部分源码由 ChatGPT-4 模型生成*, [[file:./dict-line.org][提问过程]]
+
+站在巨人肩膀上模仿的 Emeacs show Dict on modeline Package.
+
+参考: [[https://github.com/program-in-chinese/vscode_english_chinese_dictionary][GitHub - program-in-chinese/vscode_english_chinese_dictionary: vscode插件, 实现离线...]]
+
+使用 Emacs modeline 中查看 字典, 帮助你了解更多语言.
+
+效果:
+[[file:./preview.mp4][Preview]]
+
+* 支持的字典列表
+- 下载字典: [[https://github.com/program-in-chinese/vscode_english_chinese_dictionary/tree/master/src/%E8%AF%8D%E5%85%B8%E6%95%B0%E6%8D%AE][vscode_english_chinese_dictionary/src/词典数据 at master · program-in-chinese/vsc...]]
+
+* 配置示例
+ *use-pakage*
+#+begin_src emacs-lisp :tangle yes
+(use-package dict-line
+  :diminish
+  (dict-line-mode "🗺️")
+  :ensure nil
+  :load-path "path-to/dict-line"
+  :defer 2
+  :custom
+  (dict-line-dict-directory "path-to/dict")
+  (dict-line-more-icon " ⚔️ ")
+  (dict-line-idle-delay 1)
+  :config
+  (global-dict-line-mode))
+#+end_src
+
+ *其它用户*
+#+begin_src emacs-lisp :tangle yes
+(add-to-list 'load-path "path-to/dict-line")
+(require 'dict-linel)
+(setq dict-line-dict-directory "path-to/dict")
+(setq dict-line-more-icon " ⚔️ ")
+(setq dict-line-idle-delay 1)
+;; open mode to use dict-line function.
+(global-dict-line-mode t)
+#+end_src
+
+* TODO List
+- [ ] 异步
+- [ ] 支持更多 Dict 类型
+- [ ] 外部索引, 例如: ripgre, grep 等等
+- [ ] 支持更多显示方式, 例如: posframe, popup, overlay
+- [ ] 支持更多后端, 例如: sdcv
+
+* 后记
+解析速度蛮不错的, 感觉不到卡顿.
+
+* 贡献
+欢迎 Pr.
+Welcome Pull request.
+
+* ChangLog
+** V0.01 发布
