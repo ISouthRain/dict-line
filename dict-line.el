@@ -34,6 +34,26 @@
   :type 'string
   :group 'dict-line)
 
+(defcustom dict-line-audio nil
+  "Toggle Play audio file."
+  :type 'boolean
+  :group 'dict-line)
+
+(defcustom dict-line-audio-root-dir "~/Dict/audio/"
+  "Dict audio root dir."
+  :type 'string
+  :group 'dict-line)
+
+(defcustom dict-line-audio-program "mplayer"
+  "Play audio file program."
+  :type 'string
+  :group 'dict-line)
+
+(defcustom dict-line-audio-file-extension ".mp3"
+  "Audio file extension name."
+  :type 'string
+  :group 'dict-line)
+
 (defvar dict-line--timer nil
   "Timer that is set up when the last command finished.")
 
@@ -50,7 +70,27 @@
   "Show translation in the modeline."
   (unless (minibufferp)
     (let* ((word (thing-at-point 'word t))
-           (translation (when word (dict-line-get-translation word))))
+           (translation (when (and word (not (string-empty-p word)))
+                          (dict-line-get-translation word)))
+           ;; 取单词的首个 字母 作为子文件夹, 例如: ~/Dict/audio/, 如果 单词为 time
+           ;; 那么搜索 ~/Dict/audio/t/ 目录
+           (first-letter (when (and word (not (string-empty-p word))) ;; 检查 word 是否存在且非空
+                           (substring (downcase word) 0 1)))
+           ;; 确保 first-letter 和 word 是有效字符串
+           (search-dir (when first-letter
+                         (expand-file-name first-letter dict-line-audio-root-dir)))
+           (file (when (and search-dir word)
+                   (expand-file-name (concat word dict-line-audio-file-extension) search-dir)))
+           ;; 检查文件是否存在
+           (file-exists (and file (file-exists-p file)))
+           ;; 检查 播放音频 外部程序 是否存在
+           (audio-program-exists (executable-find dict-line-audio-program)))
+      ;; 音频 + 音频文件 存在
+      (when (and dict-line-audio file-exists)
+        (if audio-program-exists
+            ;; 播放音频
+            (call-process dict-line-audio-program nil 0 nil file)
+          (message "Audio program '%s' not found." dict-line-audio-program)))
       (if translation
           (progn
             ;; 筛检, 减少 \\n 出现
