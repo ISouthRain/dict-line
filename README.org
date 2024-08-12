@@ -47,6 +47,13 @@
 ;; open mode to use dict-line function.
 (global-dict-line-mode t)
 #+end_src
+*** 播放单词音频文件
+播放音频外部依赖程序: [[http://www.mplayerhq.hu/design7/dload.html][MPlayer - The Movie Player]]
+音频文件: [[https://github.com/yousefvand/pronunciations/tree/809cc0ca4d6ac4dbf0519e1caa40e581d41c2df3][GitHub - yousefvand/pronunciations at 809cc0ca4d6ac4dbf0519e1caa40e581d41c2df3]]
+#+begin_src emacs-lisp :tangle yes
+(setq dict-line-audio-root-dir "path-to/dict/audio")
+(setq dict-line-audio t)
+#+end_src
 
 * 参数
 - dict-line-dict-directory
@@ -62,6 +69,14 @@
   字典文件没有找到单词时 显示的内容
 - dict-line-dict-extension
   字典文件扩展名类型, 用户一般不需要设置这个选项
+- dict-line-audio
+  播放单词音频文件 t/nil
+- dict-line-audio-root-dir
+  音频文件夹
+- dict-line-audio-file-extension
+  音频文件夹 扩展名, 默认 .mp3
+- dict-line-audio-program
+  音频文件播放后端程序, 默认: mplayer
 
 * TODO List
 - [  ] 异步
@@ -79,4 +94,8 @@
 Welcome Pull request.
 
 * ChangLog
+** V0.03
+添加 音频 文件 自动播放 支持
+** V0.02
+修复开启 dict-line-mode 导致 modeline 显示 *invalid* 错误
 ** V0.01 发布
