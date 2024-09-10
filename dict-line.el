@@ -19,7 +19,7 @@
   :type 'number
   :group 'dict-line)
 
-(defcustom dict-line-icon "📚:"
+(defcustom dict-line-icon " 📚 "
   "Show icon"
   :type 'string
   :group 'dict-line)
