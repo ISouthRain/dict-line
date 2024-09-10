@@ -9,6 +9,11 @@
   :type 'directory
   :group 'dict-line)
 
+(defcustom dict-line-personal-word-file "~/dict/Mydict.ts"
+  "指定保存 word 和输入信息的文件路径。"
+  :type 'file
+  :group 'dict-line)
+
 (defcustom dict-line-idle-delay 1
   "The number of seconds of idle time to wait before showing translation."
   :type 'number
@@ -125,6 +130,21 @@
   "Set a timer to show translation when idle."
   (dict-line-cancel-timer)
   (setq dict-line--timer (run-with-idle-timer dict-line-idle-delay nil 'dict-line-show-translation)))
+
+;;;###autoload
+(defun dict-line-word-save ()
+  "提取光标下的单词，并提示用户输入信息，然后将 'word': '输入信息' 保存到指定文件的最后一行。"
+  (interactive)
+  (let* ((word (thing-at-point 'word t))
+         (input (read-string (format "输入信息 for '%s': " word)))
+         (entry (format "\"%s\": \"%s\"," word input)))
+    (when (and word input)
+      (with-temp-buffer
+        (insert-file-contents dict-line-personal-word-file)
+        (goto-char (point-max))
+        (insert (concat "\n" entry))
+        (write-region (point-min) (point-max) dict-line-personal-word-file))
+      (message "已将 '%s' 保存到 %s" entry dict-line-personal-word-file))))
 
 ;;;###autoload
 (define-minor-mode dict-line-mode
