@@ -31,10 +31,9 @@
   :defer 2
   :custom
   (dict-line-dict-directory "path-to/dict")
-  (dict-line-more-icon " ⚔️ ")
-  (dict-line-idle-delay 1)
+  (dict-line-idle-time 1)
   :config
-  (global-dict-line-mode))
+  (dict-line-mode))
 #+end_src
 
  *其它用户*
@@ -42,10 +41,9 @@
 (add-to-list 'load-path "path-to/dict-line")
 (require 'dict-linel)
 (setq dict-line-dict-directory "path-to/dict")
-(setq dict-line-more-icon " ⚔️ ")
-(setq dict-line-idle-delay 1)
+(setq dict-line-idle-time 1)
 ;; open mode to use dict-line function.
-(global-dict-line-mode t)
+(ict-line-mode t)
 #+end_src
 *** 播放单词音频文件
 播放音频外部依赖程序: [[http://www.mplayerhq.hu/design7/dload.html][MPlayer - The Movie Player]]
@@ -58,28 +56,18 @@
 * 参数
 - dict-line-dict-directory
   字典文件目录, 必须的
-- dict-line-idle-delay
+- dict-line-idle-time
   光标空闲多长开始查找单词,
-  默认: 1 秒
-- dict-line-icon
-  在 modeline 显示字典的图标
-- dict-line-more-icon
-  不同词性图标
-- dict-line-no-results-string
-  字典文件没有找到单词时 显示的内容
-- dict-line-dict-extension
-  字典文件扩展名类型, 用户一般不需要设置这个选项
+  默认: 0.5 秒
 - dict-line-audio
   播放单词音频文件 t/nil
 - dict-line-audio-root-dir
   音频文件夹
-- dict-line-audio-file-extension
-  音频文件夹 扩展名, 默认 .mp3
 - dict-line-audio-program
   音频文件播放后端程序, 默认: mplayer
 
 * TODO List
-- [  ] 异步
+- [X] 异步
 - [  ] 支持更多 Dict 类型
 - [  ] 外部索引, 例如: ripgre, grep 等等
 - [  ] 支持更多显示方式, 例如: posframe, popup, overlay
@@ -94,6 +82,8 @@
 Welcome Pull request.
 
 * ChangLog
+** V0.4
+重构, 支持异步.
 ** V0.03
 添加 音频 文件 自动播放 支持
 ** V0.02
