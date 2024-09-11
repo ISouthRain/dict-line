@@ -21,6 +21,12 @@
   :type 'directory
   :group 'dict-line)
 
+(defcustom dict-line-audio-play-program "mplayer"
+  "Play audio file program.
+List: `mplayer`, `mpg123`, `mpv`"
+  :type 'string
+  :group 'dict-line)
+
 (defcustom dict-line-idle-time 0.5
   "Idle time in seconds before triggering dictionary lookup."
   :type 'number
@@ -71,11 +77,12 @@
 (defun dict-line--audio-play-async (word )
   "Play the audio file for WORD if it exists."
   (let* ((first-letter (upcase (substring word 0 1))) ;; Extract the first letter of word and convert to uppercase
-         (audio-file (concat dict-line-audio-root-dir first-letter "/" word ".mp3")))
+         (audio-file (concat dict-line-audio-root-dir first-letter "/" word ".mp3"))
+         (program dict-line-audio-play-program))
     (when (file-exists-p audio-file)
       (async-start
        `(lambda ()
-          (call-process "mplayer" nil nil nil ,audio-file))
+          (call-process ,program nil nil nil ,audio-file))
        ;; Processing after asynchronous tasks are completed
        (lambda (result)
          ;; (message "Played audio for: %s" dict-line-word)
