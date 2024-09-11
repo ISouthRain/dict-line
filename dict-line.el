@@ -1,5 +1,21 @@
 ;; -*- coding: utf-8; -*-
 
+;;; dict-line --- View dict in Emacs.  -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2024 Free Software Foundation, Inc.
+;; License: GPL-3.0-or-later
+
+;; Author: ISouthRain
+;; Version: 0.1
+;; Package-Requires: ((emacs "24.2"))
+;; Keywords: dict sdcv
+;; URL: https://github.com/ISouthRain/dict-line
+
+;;; Commentary:
+;;
+;; This package is quickly view git blame information of the current file line in Emacs in real time.
+
+;;; Code:
 (require 'async)
 
 (defgroup dict-line nil
