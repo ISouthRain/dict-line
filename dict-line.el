@@ -27,6 +27,11 @@
   :type 'directory
   :group 'dict-line)
 
+(defcustom dict-line-dict-personal-file "~/my-dict/my-dict.ts"
+  "Personal dict file"
+  :type 'string
+  :group 'dict-line)
+
 (defcustom dict-line-audio nil
   "Toggle play audio file."
   :type 'boolean
@@ -138,6 +143,21 @@ List: `mplayer`, `mpg123`, `mpv`"
       )
     )
   )
+
+;;;###autoload
+(defun dict-line-word-save ()
+  "Extract the word under the cursor, prompt the user to enter information, and then save 'word': 'Input information' to the last line of the specified file."
+  (interactive)
+  (let* ((word (thing-at-point 'word t))
+         (input (read-string (format "Enter information for '%s': " word)))
+         (entry (format "\"%s\":\"%s\"," word input)))
+    (when (and word input)
+      (with-temp-buffer
+        (insert-file-contents dict-line-dict-personal-file)
+        (goto-char (point-max))
+        (insert (concat "\n" entry))
+        (write-region (point-min) (point-max) dict-line-dict-personal-file))
+      (message "Save %s to %s" entry dict-line-dict-personal-file))))
 
 (define-minor-mode dict-line-mode
   "Minor mode to look up words under the cursor asynchronously."
