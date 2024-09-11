@@ -6,7 +6,7 @@
 ;; License: GPL-3.0-or-later
 
 ;; Author: ISouthRain
-;; Version: 0.1
+;; Version: 0.4
 ;; Package-Requires: ((emacs "24.2"))
 ;; Keywords: dict sdcv
 ;; URL: https://github.com/ISouthRain/dict-line
@@ -159,9 +159,11 @@ List: `mplayer`, `mpg123`, `mpv`"
         (write-region (point-min) (point-max) dict-line-dict-personal-file))
       (message "Save %s to %s" entry dict-line-dict-personal-file))))
 
+;; TODO not completed
+;;;###autoload
 (define-minor-mode dict-line-mode
   "Minor mode to look up words under the cursor asynchronously."
-  :lighter " Dict Line"
+  :lighter " "
   :group 'dict-line
   (if dict-line-mode
       (run-with-idle-timer dict-line-idle-time t 'dict-line--get-dict-async)
