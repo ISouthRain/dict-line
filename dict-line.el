@@ -7,7 +7,7 @@
 
 ;; Author: ISouthRain
 ;; Version: 0.4
-;; Package-Requires: ((emacs "24.2"))
+;; Package-Requires: ((emacs "24.2") (async "1.8"))
 ;; Keywords: dict sdcv
 ;; URL: https://github.com/ISouthRain/dict-line
 
