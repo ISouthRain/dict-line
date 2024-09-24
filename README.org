@@ -2,49 +2,41 @@
 
  *大部分源码由 ChatGPT-4 模型生成*, [[file:./dict-line.org][提问过程]]
 
-站在巨人肩膀上模仿的 Emeacs show Dict on modeline Package.
-
-参考: [[https://github.com/program-in-chinese/vscode_english_chinese_dictionary][GitHub - program-in-chinese/vscode_english_chinese_dictionary: vscode插件, 实现离线...]]
-
-使用 Emacs modeline 中查看 字典, 帮助你了解更多语言.
+* 概述
+ Emacs 查看字典翻译内容.
 
 * Preview
-图:
-
+ *Messages*
 [[./preview.png]]
-
-视频:
-
+ *Posframe*
 [[./preview.gif]]
 
 * 支持的字典列表
 - 下载字典: [[https://github.com/program-in-chinese/vscode_english_chinese_dictionary/tree/master/src/%E8%AF%8D%E5%85%B8%E6%95%B0%E6%8D%AE][vscode_english_chinese_dictionary/src/词典数据 at master · program-in-chinese/vsc...]]
 
 * 配置示例
- *use-pakage*
 #+begin_src emacs-lisp :tangle yes
 (use-package dict-line
   :diminish
   (dict-line-mode "🗺️")
   :ensure nil
-  :load-path "path-to/dict-line"
+  :load-path "path-to-your/dict-line"
   :defer 2
   :custom
-  (dict-line-dict-directory "path-to/dict")
-  (dict-line-idle-time 1)
+  ;; (dict-line-audio t);; 自动播放音频
+  ;; (dict-line-audio-root-dir "~/your/pronunciations/");; 音频目录
+  (dict-line-dict-directory "~/your/dict/");; 字典文件目录
+  (dict-line-dict-personal-file "~/your/dict/Mydict.ts");; 手动添加字典文件, M-x dict-line-word-save
+  ;; 显示方式
+  (dict-line-display #'dict-line--posframe);; 显示依赖 posframe.el
+  ;; 或者使用 message 显示
+  ;; (dict-line-display #'dict-line--message)
+  ;; 或者自定义显示方式, 字典内容结果变量: dict-line-dict
   :config
-  (dict-line-mode))
+  (dict-line-mode t)
+  )
 #+end_src
 
- *其它用户*
-#+begin_src emacs-lisp :tangle yes
-(add-to-list 'load-path "path-to/dict-line")
-(require 'dict-linel)
-(setq dict-line-dict-directory "path-to/dict")
-(setq dict-line-idle-time 1)
-;; open mode to use dict-line function.
-(ict-line-mode t)
-#+end_src
 *** 播放单词音频文件
 播放音频外部依赖程序: [[http://www.mplayerhq.hu/design7/dload.html][MPlayer - The Movie Player]]
 音频文件: [[https://github.com/yousefvand/pronunciations/tree/809cc0ca4d6ac4dbf0519e1caa40e581d41c2df3][GitHub - yousefvand/pronunciations at 809cc0ca4d6ac4dbf0519e1caa40e581d41c2df3]]
@@ -68,10 +60,10 @@
 
 * TODO List
 - [X] 异步
-- [  ] 支持更多 Dict 类型
-- [  ] 外部索引, 例如: ripgre, grep 等等
-- [  ] 支持更多显示方式, 例如: posframe, popup, overlay
-- [  ] 支持更多后端, 例如: sdcv
+- [ ] 支持更多 Dict 类型
+- [ ] 外部索引, 例如: ripgre, grep 等等
+- [X] 支持更多显示方式, 例如: posframe, popup, overlay
+- [ ] 支持更多后端, 例如: sdcv
 
 * 后记
 解析速度蛮不错的, 感觉不到卡顿.
