@@ -3,7 +3,7 @@
  *大部分源码由 ChatGPT-4 模型生成*, [[file:./dict-line.org][提问过程]]
 
 * 概述
- Emacs 查看字典翻译内容.
+ Emacs 查看字典翻译内容, 并自动播放字典音频文件(可选).
 
 * Preview
  *Messages*
@@ -39,6 +39,7 @@
 
 *** 播放单词音频文件
 播放音频外部依赖程序: [[http://www.mplayerhq.hu/design7/dload.html][MPlayer - The Movie Player]]
+
 音频文件: [[https://github.com/yousefvand/pronunciations/tree/809cc0ca4d6ac4dbf0519e1caa40e581d41c2df3][GitHub - yousefvand/pronunciations at 809cc0ca4d6ac4dbf0519e1caa40e581d41c2df3]]
 #+begin_src emacs-lisp :tangle yes
 (setq dict-line-audio-root-dir "path-to/dict/audio")
@@ -58,7 +59,11 @@
 - dict-line-audio-program
   音频文件播放后端程序, 默认: mplayer
 
-* TODO List
+* 已知问题 [0/1]
+- [ ] 如果启用了自动播放音频文件, 有时如果光标切换的快, 光标下的单词不同, 就会一直循环
+播放某个单词的音频.
+
+* TODO [2/5]
 - [X] 异步
 - [ ] 支持更多 Dict 类型
 - [ ] 外部索引, 例如: ripgre, grep 等等
