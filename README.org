@@ -59,10 +59,6 @@
 - dict-line-audio-program
   音频文件播放后端程序, 默认: mplayer
 
-* 已知问题 [1/1]
-- [X] 如果启用了自动播放音频文件, 有时如果光标切换的快, 光标下的单词不同, 就会一直循环
-播放某个单词的音频.
-
 * TODO [2/5]
 - [X] 异步
 - [ ] 支持更多 Dict 类型
@@ -79,6 +75,8 @@
 Welcome Pull request.
 
 * ChangLog
+** V0.5
+修复 async.el 引起的错误 buffer 生成 \*emacs:error\*
 ** V0.4
 重构, 支持异步.
 ** V0.03
