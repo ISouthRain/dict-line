@@ -26,12 +26,12 @@
   ;; (dict-line-audio t);; 自动播放音频
   ;; (dict-line-audio-root-dir "~/your/pronunciations/");; 音频目录
   (dict-line-dict-directory "~/your/dict/");; 字典文件目录
-  (dict-line-dict-personal-file "~/your/dict/Mydict.ts");; 手动添加字典文件, M-x dict-line-word-save
+  (dict-line-dict-personal-file "~/your/dict/Mydict.ts");; 手动添加字典文件, M-x dict-line-word-save-from-echo
   ;; 显示方式
   (dict-line-display #'dict-line--posframe);; 显示依赖 posframe.el
   ;; 或者使用 message 显示
   ;; (dict-line-display #'dict-line--message)
-  ;; 或者自定义显示方式, 字典内容结果变量: dict-line-dict
+  ;; 或者自定义显示方式, 字典内容结果变量: dict-line-word, dict-line-dict
   :config
   (dict-line-mode t)
   )
