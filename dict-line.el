@@ -95,24 +95,11 @@ List: `mplayer`, `mpg123`, `mpv`"
   (setq dict-line-dict (substring dict-line-dict 1 -2))
   )
 
-(defun dict-line--audio-play-async (word )
-  "Play the audio file for WORD if it exists."
-  (let* ((first-letter (upcase (substring word 0 1))) ;; Extract the first letter of word and convert to uppercase
-         (audio-file (concat dict-line-audio-root-dir first-letter "/" word ".mp3"))
-         (program dict-line-audio-play-program))
-    (when (file-exists-p audio-file)
-      (async-start
-       `(lambda ()
-          (call-process ,program nil nil nil ,audio-file))
-       ;; Processing after asynchronous tasks are completed
-       (lambda (result)
-         ;; (message "Played audio for: %s" dict-line-word)
-         )
-       ))))
-
 (defun dict-line--get-dict-async ()
-  "Check the word under cursor and look it up in the dictionary."
-  (let ((word (thing-at-point 'word t))
+  "Check the word under cursor and look it up in the dictionary asynchronously."
+  (let ((word (if (use-region-p) ;; Check if there is a selected area
+                  (buffer-substring-no-properties (region-beginning) (region-end)) ;; Use selected text
+                (thing-at-point 'word t))) ;; Otherwise use the word under the cursor
         (dir dict-line-dict-directory)) ;; Extract dictionary directory
     (setq dict-line-word word)
     (when (and word (not (minibufferp)))
@@ -120,7 +107,6 @@ List: `mplayer`, `mpg123`, `mpv`"
        `(lambda ()
           (let ((dict-files (directory-files ,dir t "\\.ts$"))
                 (dicts nil))
-            ;; Loop through dictionary files to find dicts for words
             (while (and dict-files (not dicts))
               (with-temp-buffer
                 (insert-file-contents (car dict-files))
@@ -128,20 +114,25 @@ List: `mplayer`, `mpg123`, `mpv`"
                 (when (search-forward (concat "\"" ,word "\":") nil t)
                   (setq dicts (buffer-substring-no-properties (point) (line-end-position)))))
               (setq dict-files (cdr dict-files)))
-            dicts)) ;; Return to dicts
+            dicts))
+       ;; Callback
        (lambda (dicts)
          (when dicts
            (setq dict-line-dict dicts)
-           ;; To display
            (when (functionp dict-line-display)
-             (funcall dict-line-display))
-           ))
-       )
-      ;; Play audio
-      (when dict-line-audio
-        (dict-line--audio-play-async dict-line-word))
-      )
-    )
+             (funcall dict-line-display)))
+         ;; Play audio
+         (when dict-line-audio
+           (let* ((first-letter (upcase (substring dict-line-word 0 1))) ;; Get the first letter of a word
+                  (audio-file (concat dict-line-audio-root-dir first-letter "/" dict-line-word ".mp3"))
+                  (program dict-line-audio-play-program))
+             (when (file-exists-p audio-file)
+               (let ((process (start-process "dict-line" nil program audio-file)))
+                 ;; Automatically terminate playback after x seconds
+                 (run-at-time "1 sec" nil #'kill-process process))))
+           )
+         ))
+      ))
   )
 
 ;;;###autoload
