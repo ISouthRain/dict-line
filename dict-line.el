@@ -145,7 +145,7 @@ List: `mplayer`, `mpg123`, `mpv`"
   )
 
 ;;;###autoload
-(defun dict-line-word-save ()
+(defun dict-line-word-save-from-echo ()
   "Extract the word under the cursor, prompt the user to enter information, and then save 'word': 'Input information' to the last line of the specified file."
   (interactive)
   (let* ((word (thing-at-point 'word t))
