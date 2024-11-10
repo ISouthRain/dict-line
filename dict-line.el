@@ -7,7 +7,7 @@
 
 ;; Author: ISouthRain
 ;; Version: 0.6
-;; Package-Requires: ((emacs "24.2") (async "1.8"))
+;; Package-Requires: ((emacs "24.2") (async "1.8") (posframe "1.0.0"))
 ;; Keywords: dict sdcv
 ;; URL: https://github.com/ISouthRain/dict-line
 
@@ -17,6 +17,7 @@
 
 ;;; Code:
 (require 'async)
+(require 'posframe)
 
 (defgroup dict-line nil
   "Emacs dictionary lookup on cursor movement."
