@@ -6,7 +6,7 @@
 ;; License: GPL-3.0-or-later
 
 ;; Author: ISouthRain
-;; Version: 0.4
+;; Version: 0.6
 ;; Package-Requires: ((emacs "24.2") (async "1.8"))
 ;; Keywords: dict sdcv
 ;; URL: https://github.com/ISouthRain/dict-line
@@ -59,8 +59,44 @@ List: `mplayer`, `mpg123`, `mpv`"
 (defvar dict-line-dict nil
   "dict-line result dict txt.")
 
+(defvar dict-line--current-buffer nil
+  "dict-line word current buffer name.")
+
+(defvar dict-line--posframe-buffer "*dict-line-posframe*"
+  "dict-line show dict txt buffer.")
+
+(defcustom dict-line-posframe-location #'posframe-poshandler-point-bottom-left-corner
+  "The location function for displaying the dict-line posframe.
+Choose from a list of `posframe` position handlers to control where
+the posframe appears relative to the frame, window, or point.
+Sourcy for `posframe-show` (2) POSHANDLER:
+1.  posframe-poshandler-frame-center
+2.  posframe-poshandler-frame-top-center
+3.  posframe-poshandler-frame-top-left-corner
+4.  posframe-poshandler-frame-top-right-corner
+5.  posframe-poshandler-frame-top-left-or-right-other-corner
+6.  posframe-poshandler-frame-bottom-center
+7.  posframe-poshandler-frame-bottom-left-corner
+8.  posframe-poshandler-frame-bottom-right-corner
+9.  posframe-poshandler-window-center
+10. posframe-poshandler-window-top-center
+11. posframe-poshandler-window-top-left-corner
+12. posframe-poshandler-window-top-right-corner
+13. posframe-poshandler-window-bottom-center
+14. posframe-poshandler-window-bottom-left-corner
+15. posframe-poshandler-window-bottom-right-corner
+16. posframe-poshandler-point-top-left-corner
+17. posframe-poshandler-point-bottom-left-corner
+18. posframe-poshandler-point-bottom-left-corner-upward
+19. posframe-poshandler-point-window-center
+20. posframe-poshandler-point-frame-center"
+  :type '(choice (const nil)
+                 function)
+  :group 'dict-line)
+
+
 (defcustom dict-line-display #'dict-line--message
-  "emsg-blame to display function."
+  "dict-line to display function."
   :type '(choice (const nil)
                  function)
   :group 'dict-line)
@@ -74,18 +110,22 @@ List: `mplayer`, `mpg123`, `mpv`"
   "Show translation in the posframe"
   (dict-line--dict-convert)
   (when (posframe-workable-p)
-    (posframe-show "*dict-line-posframe*"
+    (posframe-show dict-line--posframe-buffer
                    :string dict-line-dict
-                   :timeout 5
                    :max-width 30
                    :left-fringe 5
                    :right-fringe 5
-                   :position (point)
-                   :poshandler #'posframe-poshandler-frame-bottom-right-corner
+                   :poshandler dict-line-posframe-location
                    :border-width 5;; 外边框大小
                    :border-color "#ed98cc" ;; 边框颜色
                    )
     )
+  )
+
+(defun dict-line--posframe-delete ()
+  "Delete the posframe associated with BUFFER if it exists."
+  (when (eq dict-line-display #'dict-line--posframe)
+    (posframe-delete dict-line--posframe-buffer))
   )
 
 (defun dict-line--dict-convert ()
@@ -100,8 +140,10 @@ List: `mplayer`, `mpg123`, `mpv`"
   (let ((word (if (use-region-p) ;; Check if there is a selected area
                   (buffer-substring-no-properties (region-beginning) (region-end)) ;; Use selected text
                 (thing-at-point 'word t))) ;; Otherwise use the word under the cursor
+        (buffer (get-buffer (buffer-name)))
         (dir dict-line-dict-directory)) ;; Extract dictionary directory
     (setq dict-line-word word)
+    (setq dict-line--current-buffer buffer) ;; Need to query the word buffer
     (when (and word (not (minibufferp)))
       (async-start
        `(lambda ()
@@ -119,8 +161,10 @@ List: `mplayer`, `mpg123`, `mpv`"
        (lambda (dicts)
          (when dicts
            (setq dict-line-dict dicts)
-           (when (functionp dict-line-display)
-             (funcall dict-line-display)))
+           (with-current-buffer (get-buffer-create dict-line--current-buffer)
+             (when (functionp dict-line-display)
+               (funcall dict-line-display)))
+           )
          ;; Play audio
          (when dict-line-audio
            (let* ((first-letter (upcase (substring dict-line-word 0 1))) ;; Get the first letter of a word
@@ -157,7 +201,11 @@ List: `mplayer`, `mpg123`, `mpv`"
   :lighter " "
   :group 'dict-line
   (if dict-line-mode
+      (progn
       (run-with-idle-timer dict-line-idle-time t 'dict-line--get-dict-async)
-    (cancel-function-timers 'dict-line--get-dict-async)))
+      (add-hook 'post-command-hook #'dict-line--posframe-delete nil nil)
+      )
+    (cancel-function-timers 'dict-line--get-dict-async)
+    (remove-hook 'post-command-hook #'dict-line--posframe-delete nil nil)))
 
 (provide 'dict-line)
