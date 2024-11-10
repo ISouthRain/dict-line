@@ -58,6 +58,10 @@
   音频文件夹
 - dict-line-audio-program
   音频文件播放后端程序, 默认: mplayer
+- dict-line-display
+  显示字典内容被调用变量.
+- dict-line-posframe-location
+  使用 posframe 显示字典内容的位置.
 
 * TODO [2/5]
 - [X] 异步
@@ -75,6 +79,8 @@
 Welcome Pull request.
 
 * ChangLog
+** V0.6
+新增功能: 支持定义 posframe 显示方式.
 ** V0.5
 修复 async.el 引起的错误 buffer 生成 \*emacs:error\*
 ** V0.4
