@@ -70,7 +70,7 @@ List: `mplayer`, `mpg123`, `mpv`"
   "The location function for displaying the dict-line posframe.
 Choose from a list of `posframe` position handlers to control where
 the posframe appears relative to the frame, window, or point.
-Sourcy for `posframe-show` (2) POSHANDLER:
+Source for `posframe-show` (2) POSHANDLER:
 1.  posframe-poshandler-frame-center
 2.  posframe-poshandler-frame-top-center
 3.  posframe-poshandler-frame-top-left-corner
