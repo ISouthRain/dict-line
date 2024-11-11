@@ -126,7 +126,7 @@ Sourcy for `posframe-show` (2) POSHANDLER:
 (defun dict-line--posframe-delete ()
   "Delete the posframe associated with BUFFER if it exists."
   (when (eq dict-line-display #'dict-line--posframe)
-    (posframe-delete dict-line--posframe-buffer))
+    (posframe-hide dict-line--posframe-buffer))
   )
 
 (defun dict-line--dict-convert ()
