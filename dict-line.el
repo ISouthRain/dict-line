@@ -174,7 +174,11 @@ Source for `posframe-show` (2) POSHANDLER:
              (when (file-exists-p audio-file)
                (let ((process (start-process "dict-line" nil program audio-file)))
                  ;; Automatically terminate playback after x seconds
-                 (run-at-time "1 sec" nil #'kill-process process))))
+                 (run-at-time "1 sec" nil
+                              (lambda (proc)
+                                (when (process-live-p proc)
+                                  (kill-process proc)))
+                              process))))
            )
          ))
       ))
