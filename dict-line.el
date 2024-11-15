@@ -207,10 +207,15 @@ Source for `posframe-show` (2) POSHANDLER:
   :group 'dict-line
   (if dict-line-mode
       (progn
-      (run-with-idle-timer dict-line-idle-time t 'dict-line--get-dict-async)
-      (add-hook 'post-command-hook #'dict-line--posframe-delete nil nil)
-      )
-    (cancel-function-timers 'dict-line--get-dict-async)
-    (remove-hook 'post-command-hook #'dict-line--posframe-delete nil nil)))
+        ;; Start the idle timer for asynchronous word lookup
+        (run-with-idle-timer dict-line-idle-time t #'dict-line--get-dict-async)
+        ;; Add hook to delete posframe after each command
+        (add-hook 'post-command-hook #'dict-line--posframe-delete))
+    ;; Cancel all timers for dict-line--get-dict-async
+    (cancel-function-timers #'dict-line--get-dict-async)
+    ;; Remove the hook for deleting posframe
+    (remove-hook 'post-command-hook #'dict-line--posframe-delete))
+  )
+
 
 (provide 'dict-line)
