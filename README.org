@@ -58,6 +58,8 @@
   音频文件夹
 - dict-line-audio-program
   音频文件播放后端程序, 默认: mplayer
+- dict-line-audio-play-program-arg
+  音频播放后端程序参数
 - dict-line-display
   显示字典内容被调用变量.
 - dict-line-posframe-location
