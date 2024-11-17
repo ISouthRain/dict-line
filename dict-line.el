@@ -49,6 +49,12 @@ List: `mplayer`, `mpg123`, `mpv`"
   :type 'string
   :group 'dict-line)
 
+(defcustom dict-line-audio-play-program-arg "-volume 100"
+  "Audio play program arguments.
+Default example: play volume 100%"
+  :type 'string
+  :group 'dict-line)
+
 (defcustom dict-line-idle-time 0.5
   "Idle time in seconds before triggering dictionary lookup."
   :type 'number
@@ -168,11 +174,12 @@ Source for `posframe-show` (2) POSHANDLER:
            )
          ;; Play audio
          (when dict-line-audio
-           (let* ((first-letter (upcase (substring dict-line-word 0 1))) ;; Get the first letter of a word
+           (let* ((first-letter (upcase (substring dict-line-word 0 1))) ;; Get the first letter of the word
                   (audio-file (concat dict-line-audio-root-dir first-letter "/" dict-line-word ".mp3"))
-                  (program dict-line-audio-play-program))
+                  (program dict-line-audio-play-program)
+                  (args (append (split-string dict-line-audio-play-program-arg) (list audio-file)))) ;; Combine arguments
              (when (file-exists-p audio-file)
-               (let ((process (start-process "dict-line" nil program audio-file)))
+               (let ((process (apply #'start-process "dict-line" nil program args)))
                  ;; Automatically terminate playback after x seconds
                  (run-at-time "1 sec" nil
                               (lambda (proc)
