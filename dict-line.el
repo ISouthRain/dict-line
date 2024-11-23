@@ -175,7 +175,7 @@ Source for `posframe-show` (2) POSHANDLER:
          ;; Play audio
          (when dict-line-audio
            (let* ((first-letter (upcase (substring dict-line-word 0 1))) ;; Get the first letter of the word
-                  (audio-file (concat dict-line-audio-root-dir first-letter "/" dict-line-word ".mp3"))
+                  (audio-file (concat dict-line-audio-root-dir "/" first-letter "/" dict-line-word ".mp3"))
                   (program dict-line-audio-play-program)
                   (args (append (split-string dict-line-audio-play-program-arg) (list audio-file)))) ;; Combine arguments
              (when (file-exists-p audio-file)
