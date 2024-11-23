@@ -143,6 +143,7 @@ Source for `posframe-show` (2) POSHANDLER:
   )
 
 (defun dict-line--get-dict-async ()
+  (interactive)
   "Check the word under cursor and look it up in the dictionary asynchronously."
   (let ((word (if (use-region-p) ;; Check if there is a selected area
                   (buffer-substring-no-properties (region-beginning) (region-end)) ;; Use selected text
