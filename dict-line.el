@@ -49,9 +49,9 @@ List: `mplayer`, `mpg123`, `mpv`"
   :type 'string
   :group 'dict-line)
 
-(defcustom dict-line-audio-play-program-arg "-volume 100"
+(defcustom dict-line-audio-play-program-arg ""
   "Audio play program arguments.
-Default example: play volume 100%"
+Default example: -volume 80 to mplayer play volume 80%"
   :type 'string
   :group 'dict-line)
 
