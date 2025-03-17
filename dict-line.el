@@ -142,55 +142,68 @@ Source for `posframe-show` (2) POSHANDLER:
   (setq dict-line-dict (substring dict-line-dict 1 -2))
   )
 
-(defun dict-line--get-dict-async ()
-  (interactive)
+(defun dict-line--extract-word ()
+  "Extract the word or selection text under the cursor."
+  (if (use-region-p) ;; Check if there is a selected area
+      (buffer-substring-no-properties (region-beginning) (region-end)) ;; Use selected text
+    (thing-at-point 'word t))) ;; Otherwise use the word under the cursor
+
+(defun dict-line--search-dict-files-async (word dir callback)
+  "Asynchronously search dictionary files."
+  (async-start
+   `(lambda ()
+      (let ((dict-files (directory-files ,dir t "\\.ts$"))
+            (dicts nil))
+        (while (and dict-files (not dicts))
+          (with-temp-buffer
+            (insert-file-contents (car dict-files))
+            (goto-char (point-min))
+            (when (search-forward (concat "\"" ,word "\":") nil t)
+              (setq dicts (buffer-substring-no-properties (point) (line-end-position)))))
+          (setq dict-files (cdr dict-files)))
+        dicts))
+   ;; Callback
+   callback))
+
+(defun dict-line--play-audio (word)
+  "Plays an audio file for the specified word."
+  (let* ((first-letter (upcase (substring word 0 1))) ;; Get the first letter of the word
+         (audio-file (concat dict-line-audio-root-dir "/" first-letter "/" (downcase word) ".mp3"))
+         (program dict-line-audio-play-program)
+         (args (append (split-string dict-line-audio-play-program-arg) (list audio-file)))) ;; Combine arguments
+    (when (file-exists-p audio-file)
+      (let ((process (apply #'start-process "dict-line" nil program args)))
+        ;; Automatically terminate playback after x seconds
+        (run-at-time "1 sec" nil
+                     (lambda (proc)
+                       (when (process-live-p proc)
+                         (kill-process proc)))
+                     process)))))
+
+(defun dict-line--handle-dict-result (dicts)
+  "Process dictionary query results, display the results and play audio (if enabled)."
+  (when dicts
+    (setq dict-line-dict dicts)
+    (with-current-buffer (get-buffer-create dict-line--current-buffer)
+      (when (functionp dict-line-display)
+        (funcall dict-line-display))))
+  (when dict-line-audio
+    (dict-line--play-audio dict-line-word)))
+
+(defun dict-line-get-dict-async ()
   "Check the word under cursor and look it up in the dictionary asynchronously."
-  (let ((word (if (use-region-p) ;; Check if there is a selected area
-                  (buffer-substring-no-properties (region-beginning) (region-end)) ;; Use selected text
-                (thing-at-point 'word t))) ;; Otherwise use the word under the cursor
-        (buffer (get-buffer (buffer-name)))
-        (dir dict-line-dict-directory)) ;; Extract dictionary directory
+  (interactive)
+  (let* ((word (dict-line--extract-word))
+         (buffer (get-buffer (buffer-name)))
+         (dir dict-line-dict-directory)) ;; Extract dictionary directory
     (setq dict-line-word word)
     (setq dict-line--current-buffer buffer) ;; Need to query the word buffer
     (when (and word (not (minibufferp)))
-      (async-start
-       `(lambda ()
-          (let ((dict-files (directory-files ,dir t "\\.ts$"))
-                (dicts nil))
-            (while (and dict-files (not dicts))
-              (with-temp-buffer
-                (insert-file-contents (car dict-files))
-                (goto-char (point-min))
-                (when (search-forward (concat "\"" ,word "\":") nil t)
-                  (setq dicts (buffer-substring-no-properties (point) (line-end-position)))))
-              (setq dict-files (cdr dict-files)))
-            dicts))
-       ;; Callback
+      (dict-line--search-dict-files-async
+       word
+       dir
        (lambda (dicts)
-         (when dicts
-           (setq dict-line-dict dicts)
-           (with-current-buffer (get-buffer-create dict-line--current-buffer)
-             (when (functionp dict-line-display)
-               (funcall dict-line-display)))
-           )
-         ;; Play audio
-         (when dict-line-audio
-           (let* ((first-letter (upcase (substring dict-line-word 0 1))) ;; Get the first letter of the word
-                  (audio-file (concat dict-line-audio-root-dir "/" first-letter "/" (downcase dict-line-word) ".mp3"))
-                  (program dict-line-audio-play-program)
-                  (args (append (split-string dict-line-audio-play-program-arg) (list audio-file)))) ;; Combine arguments
-             (when (file-exists-p audio-file)
-               (let ((process (apply #'start-process "dict-line" nil program args)))
-                 ;; Automatically terminate playback after x seconds
-                 (run-at-time "1 sec" nil
-                              (lambda (proc)
-                                (when (process-live-p proc)
-                                  (kill-process proc)))
-                              process))))
-           )
-         ))
-      ))
-  )
+         (dict-line--handle-dict-result dicts))))))
 
 ;;;###autoload
 (defun dict-line-word-save-from-echo ()
@@ -216,11 +229,11 @@ Source for `posframe-show` (2) POSHANDLER:
   (if dict-line-mode
       (progn
         ;; Start the idle timer for asynchronous word lookup
-        (run-with-idle-timer dict-line-idle-time t #'dict-line--get-dict-async)
+        (run-with-idle-timer dict-line-idle-time t #'dict-line-get-dict-async)
         ;; Add hook to delete posframe after each command
         (add-hook 'post-command-hook #'dict-line--posframe-delete))
-    ;; Cancel all timers for dict-line--get-dict-async
-    (cancel-function-timers #'dict-line--get-dict-async)
+    ;; Cancel all timers for dict-line-get-dict-async
+    (cancel-function-timers #'dict-line-get-dict-async)
     ;; Remove the hook for deleting posframe
     (remove-hook 'post-command-hook #'dict-line--posframe-delete))
   )
