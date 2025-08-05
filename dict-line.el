@@ -1,4 +1,4 @@
-;; -*- coding: utf-8; -*-
+;; -*- coding: utf-8; lexical-binding: t; -*-
 
 ;;; dict-line --- View dict in Emacs.  -*- lexical-binding: t; -*-
 
