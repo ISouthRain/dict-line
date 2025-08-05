@@ -166,19 +166,16 @@ Source for `posframe-show` (2) POSHANDLER:
    callback))
 
 (defun dict-line--play-audio (word)
-  "Plays an audio file for the specified word."
-  (let* ((first-letter (upcase (substring word 0 1))) ;; Get the first letter of the word
-         (audio-file (concat dict-line-audio-root-dir "/" first-letter "/" (downcase word) ".mp3"))
-         (program dict-line-audio-play-program)
-         (args (append (split-string dict-line-audio-play-program-arg) (list audio-file)))) ;; Combine arguments
-    (when (file-exists-p audio-file)
-      (let ((process (apply #'start-process "dict-line" nil program args)))
-        ;; Automatically terminate playback after x seconds
-        (run-at-time "1 sec" nil
-                     (lambda (proc)
-                       (when (process-live-p proc)
-                         (kill-process proc)))
-                     process)))))
+  "Play word audio."
+  (when (and (stringp word) (> (length word) 0))
+    (let* ((audio-file (concat dict-line-audio-root-dir "/"
+                               (upcase (substring word 0 1)) "/"
+                               (downcase word) ".mp3"))
+           (args (append (split-string dict-line-audio-play-program-arg)
+                         (list audio-file))))
+      (when (file-exists-p audio-file)
+        (let ((proc (apply #'start-process "dict-line" nil dict-line-audio-play-program args)))
+          (run-at-time "1 sec" nil (lambda (p) (when (process-live-p p) (kill-process p))) proc))))))
 
 (defun dict-line--handle-dict-result (dicts)
   "Process dictionary query results, display the results and play audio (if enabled)."
