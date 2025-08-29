@@ -217,23 +217,51 @@ Source for `posframe-show` (2) POSHANDLER:
         (write-region (point-min) (point-max) dict-line-dict-personal-file))
       (message "Save %s to %s" entry dict-line-dict-personal-file))))
 
-;; TODO not completed
+
+(defvar-local dict-line--idle-timer nil
+  "Buffer-local idle timer used by `dict-line-mode`.")
+
+(defun dict-line--schedule-lookup ()
+  "Schedule dictionary lookup after `dict-line-idle-time` seconds of idle."
+  ;; Clear the old ones first.
+  (when (timerp dict-line--idle-timer)
+    (cancel-timer dict-line--idle-timer))
+  ;; Reset the idle timer.
+  (setq dict-line--idle-timer
+        (run-with-idle-timer dict-line-idle-time nil
+                             #'dict-line-get-dict-async)))
+
 ;;;###autoload
 (define-minor-mode dict-line-mode
   "Minor mode to look up words under the cursor asynchronously."
-  :lighter " "
+  :lighter " Dict"
   :group 'dict-line
   (if dict-line-mode
       (progn
-        ;; Start the idle timer for asynchronous word lookup
-        (run-with-idle-timer dict-line-idle-time t #'dict-line-get-dict-async)
-        ;; Add hook to delete posframe after each command
-        (add-hook 'post-command-hook #'dict-line--posframe-delete))
-    ;; Cancel all timers for dict-line-get-dict-async
-    (cancel-function-timers #'dict-line-get-dict-async)
-    ;; Remove the hook for deleting posframe
-    (remove-hook 'post-command-hook #'dict-line--posframe-delete))
-  )
+        ;; Schedule a new idle timer after each command.
+        (add-hook 'post-command-hook #'dict-line--schedule-lookup nil t)
+        ;; Also, add posframe cleanup.
+        (add-hook 'post-command-hook #'dict-line--posframe-delete nil t))
+    ;; cleanup
+    (remove-hook 'post-command-hook #'dict-line--schedule-lookup t)
+    (remove-hook 'post-command-hook #'dict-line--posframe-delete t)
+    (when (timerp dict-line--idle-timer)
+      (cancel-timer dict-line--idle-timer)
+      (setq dict-line--idle-timer nil))))
+
+(defun dict-line--enable-if-eligible ()
+  "Enable `dict-line-mode` if not in minibuffer."
+  (unless (minibufferp)
+    (dict-line-mode 1)))
+
+;;;###autoload
+(define-globalized-minor-mode global-dict-line-mode
+  dict-line-mode
+  dict-line--enable-if-eligible
+  :group 'dict-line
+  :init-value nil
+  :lighter " Dict"
+  "Globalized version of `dict-line-mode`.")
 
 
 (provide 'dict-line)
