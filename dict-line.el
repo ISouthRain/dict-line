@@ -1,23 +1,19 @@
-;; -*- coding: utf-8; lexical-binding: t; -*-
+;;; dict-line --- View dict in Emacs.  -*- coding: utf-8; lexical-binding: t; -*-
 
-;;; dict-line --- View dict in Emacs.  -*- lexical-binding: t; -*-
-
-;; Copyright (C) 2024 Free Software Foundation, Inc.
+;; Copyright (C) 2025 Free Software Foundation, Inc.
 ;; License: GPL-3.0-or-later
 
 ;; Author: ISouthRain
-;; Version: 0.6
-;; Package-Requires: ((emacs "24.2") (async "1.8") (posframe "1.0.0"))
-;; Keywords: dict sdcv
+;; Version: 0.7
+;; Package-Requires: ((emacs "24.2"))
+;; Keywords: dict
 ;; URL: https://github.com/ISouthRain/dict-line
 
 ;;; Commentary:
 ;;
-;; This package is quickly view git blame information of the current file line in Emacs in real time.
+;; This package is quickly view word dictionary.
 
 ;;; Code:
-(require 'async)
-(require 'posframe)
 
 (defgroup dict-line nil
   "Emacs dictionary lookup on cursor movement."
@@ -29,7 +25,7 @@
   :group 'dict-line)
 
 (defcustom dict-line-dict-personal-file "~/my-dict/my-dict.ts"
-  "Personal dict file"
+  "Personal dict file."
   :type 'string
   :group 'dict-line)
 
@@ -43,16 +39,10 @@
   :type 'directory
   :group 'dict-line)
 
-(defcustom dict-line-audio-play-program "mplayer"
-  "Play audio file program.
-List: `mplayer`, `mpg123`, `mpv`"
-  :type 'string
-  :group 'dict-line)
-
-(defcustom dict-line-audio-play-program-arg ""
-  "Audio play program arguments.
-Default example: -volume 80 to mplayer play volume 80%"
-  :type 'string
+(defcustom dict-line-cache-file
+  (expand-file-name ".dict-line-cache.el" user-emacs-directory)
+  "File to persist dict-line cache across Emacs sessions."
+  :type 'file
   :group 'dict-line)
 
 (defcustom dict-line-idle-time 0.5
@@ -60,151 +50,203 @@ Default example: -volume 80 to mplayer play volume 80%"
   :type 'number
   :group 'dict-line)
 
-(defvar dict-line-word nil
-  "dict-line point word.")
+(defcustom dict-line-audio-play-program "mplayer"
+  "Play audio file program."
+  :type 'string
+  :group 'dict-line)
 
-(defvar dict-line-dict nil
-  "dict-line result dict txt.")
-
-(defvar dict-line--current-buffer nil
-  "dict-line word current buffer name.")
-
-(defvar dict-line--posframe-buffer "*dict-line-posframe*"
-  "dict-line show dict txt buffer.")
+(defcustom dict-line-audio-play-program-arg ""
+  "Audio play program arguments."
+  :type 'string
+  :group 'dict-line)
 
 (defcustom dict-line-posframe-location #'posframe-poshandler-point-bottom-left-corner
   "The location function for displaying the dict-line posframe.
-Choose from a list of `posframe` position handlers to control where
-the posframe appears relative to the frame, window, or point.
-Source for `posframe-show` (2) POSHANDLER:
-1.  posframe-poshandler-frame-center
-2.  posframe-poshandler-frame-top-center
-3.  posframe-poshandler-frame-top-left-corner
-4.  posframe-poshandler-frame-top-right-corner
-5.  posframe-poshandler-frame-top-left-or-right-other-corner
-6.  posframe-poshandler-frame-bottom-center
-7.  posframe-poshandler-frame-bottom-left-corner
-8.  posframe-poshandler-frame-bottom-right-corner
-9.  posframe-poshandler-window-center
-10. posframe-poshandler-window-top-center
-11. posframe-poshandler-window-top-left-corner
-12. posframe-poshandler-window-top-right-corner
-13. posframe-poshandler-window-bottom-center
-14. posframe-poshandler-window-bottom-left-corner
-15. posframe-poshandler-window-bottom-right-corner
-16. posframe-poshandler-point-top-left-corner
-17. posframe-poshandler-point-bottom-left-corner
-18. posframe-poshandler-point-bottom-left-corner-upward
-19. posframe-poshandler-point-window-center
-20. posframe-poshandler-point-frame-center"
-  :type '(choice (const nil)
-                 function)
+Option `posframe-show' =>  (2) POSHANDLER"
+  :type '(choice (const nil) function)
   :group 'dict-line)
-
 
 (defcustom dict-line-display #'dict-line--message
-  "dict-line to display function."
-  :type '(choice (const nil)
-                 function)
+  "dict-line display function."
+  :type '(choice (const nil) function)
   :group 'dict-line)
 
+(defvar dict-line--posframe-buffer "*dict-line-posframe*")
+
+(defvar dict-line-word nil
+  "Recently searched words.
+From `dict-line--extract-word'")
+(defvar dict-line-dict nil
+  "Recent dictionary lookup results.
+From `dict-line--search-word'")
+
+;; Ensure only one load.
+(defvar dict-line--cache-loaded-p nil
+  "Non-nil if dict-line cache has been loaded in this Emacs session.
+For `dict-line--load-cache'")
+
+(defvar dict-line--cache (make-hash-table :test 'equal)
+  "Hash table cache: word → definition.
+For `dict-line--build-dict-cache'")
+
+(defvar dict-line--audio-cache (make-hash-table :test 'equal)
+  "Hash table cache: word → audio-path.
+For `dict-line--build-audio-cache'")
+
+
+;; ----------------------------
+;; Display relevant
+;; ----------------------------
+(defun dict-line--dict-convert ()
+  "dict-line convert dict txt to display."
+  (setq dict-line-dict (replace-regexp-in-string "\\\\\\\\n" "\n" dict-line-dict))
+  (setq dict-line-dict (replace-regexp-in-string "\"," "\" " dict-line-dict))
+  (setq dict-line-dict (concat dict-line-word "\n" dict-line-dict))
+  ;; (setq dict-line-dict (substring dict-line-dict 1 -2))
+  )
+
 (defun dict-line--message ()
-  "dict-line display function."
+  "Display translation with `message'."
   (dict-line--dict-convert)
-  (message dict-line-dict))
+  (when dict-line-dict
+    (message "%s" dict-line-dict)))
 
 (defun dict-line--posframe ()
-  "Show translation in the posframe"
+  "Show translation in posframe."
   (dict-line--dict-convert)
-  (when (posframe-workable-p)
+  (when (and dict-line-dict (posframe-workable-p))
     (posframe-show dict-line--posframe-buffer
                    :string dict-line-dict
-                   :max-width 30
+                   :max-width 50
                    :left-fringe 5
                    :right-fringe 5
                    :poshandler dict-line-posframe-location
-                   :border-width 5;; 外边框大小
-                   :border-color "#ed98cc" ;; 边框颜色
-                   )
-    )
-  )
+                   :border-width 3
+                   :border-color "#ed98cc")))
 
 (defun dict-line--posframe-delete ()
-  "Delete the posframe associated with BUFFER if it exists."
+  "Delete posframe."
   (when (eq dict-line-display #'dict-line--posframe)
-    (posframe-hide dict-line--posframe-buffer))
-  )
+    (if (fboundp 'posframe-hide)
+        (posframe-hide dict-line--posframe-buffer))))
+
+;; ----------------------------
+;; Cache build/load
+;; ----------------------------
+(defun dict-line--build-dict-cache ()
+  "Load all dictionary files into `dict-line--cache'.
+Keys are stored in lowercase for case-insensitive matching."
+  (clrhash dict-line--cache)
+  (let ((files (directory-files dict-line-dict-directory t "\\.ts$")))
+    (dolist (file files)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        ;; Exact match "word":"definition"
+        (while (re-search-forward "\"\\([^\"[:space:]]+\\)\":\"\\([^\"]+\\)\"" nil t)
+          (let ((word (downcase (match-string 1)))
+                (def (match-string 2)))
+            (puthash word def dict-line--cache)))))))
 
-(defun dict-line--dict-convert ()
-  "dict-line convert dict txt."
-  (setq dict-line-dict (replace-regexp-in-string "\\\\\\\\n" "\n" dict-line-dict))
-  (setq dict-line-dict (replace-regexp-in-string "\"," "\" " dict-line-dict))
-  (setq dict-line-dict (substring dict-line-dict 1 -2))
-  )
+(defun dict-line--build-audio-cache ()
+  "Scan audio root directory and build `dict-line--audio-cache'.
+Keys are stored in lowercase for case-insensitive matching."
+  (clrhash dict-line--audio-cache)
+  (when (file-directory-p dict-line-audio-root-dir)
+    (dolist (f (directory-files-recursively dict-line-audio-root-dir "\\.mp3$"))
+      (let* ((word (downcase (file-name-base f))))
+        (puthash word f dict-line--audio-cache)))))
 
-(defun dict-line--extract-word ()
-  "Extract the word or selection text under the cursor."
-  (if (use-region-p) ;; Check if there is a selected area
-      (buffer-substring-no-properties (region-beginning) (region-end)) ;; Use selected text
-    (thing-at-point 'word t))) ;; Otherwise use the word under the cursor
+(defun dict-line--save-cache ()
+  "Persist cache to `dict-line-cache-file'."
+  (with-temp-file dict-line-cache-file
+    (insert ";; Auto-generated dict-line cache\n\n")
+    (prin1 `(setq dict-line--cache ',dict-line--cache) (current-buffer))
+    (insert "\n\n")
+    (prin1 `(setq dict-line--audio-cache ',dict-line--audio-cache) (current-buffer))))
 
-(defun dict-line--search-dict-files-async (word dir callback)
-  "Asynchronously search dictionary files."
-  (async-start
-   `(lambda ()
-      (let ((dict-files (directory-files ,dir t "\\.ts$"))
-            (dicts nil))
-        (while (and dict-files (not dicts))
-          (with-temp-buffer
-            (insert-file-contents (car dict-files))
-            (goto-char (point-min))
-            (when (search-forward (concat "\"" ,word "\":") nil t)
-              (setq dicts (buffer-substring-no-properties (point) (line-end-position)))))
-          (setq dict-files (cdr dict-files)))
-        dicts))
-   ;; Callback
-   callback))
+(defun dict-line--load-cache ()
+  "Load cache from `dict-line-cache-file' if it exists.
+Set `dict-line--cache-loaded-p' to t after successful load."
+  (when (and (file-exists-p dict-line-cache-file)
+             (not dict-line--cache-loaded-p))
+    (load-file dict-line-cache-file)
+    (setq dict-line--cache-loaded-p t)
+    (message "[dict-line] Cache loaded from %s" dict-line-cache-file)))
 
-(defun dict-line--play-audio (word)
-  "Play word audio."
-  (when (and (stringp word) (> (length word) 0))
-    (let* ((audio-file (concat dict-line-audio-root-dir "/"
-                               (upcase (substring word 0 1)) "/"
-                               (downcase word) ".mp3"))
-           (args (append (split-string dict-line-audio-play-program-arg)
-                         (list audio-file))))
-      (when (file-exists-p audio-file)
-        (let ((proc (apply #'start-process "dict-line" nil dict-line-audio-play-program args)))
-          (run-at-time "1 sec" nil (lambda (p) (when (process-live-p p) (kill-process p))) proc))))))
-
-(defun dict-line--handle-dict-result (dicts)
-  "Process dictionary query results, display the results and play audio (if enabled)."
-  (when dicts
-    (setq dict-line-dict dicts)
-    (with-current-buffer (get-buffer-create dict-line--current-buffer)
-      (when (functionp dict-line-display)
-        (funcall dict-line-display))))
-  (when dict-line-audio
-    (dict-line--play-audio dict-line-word)))
-
-(defun dict-line-get-dict-async ()
-  "Check the word under cursor and look it up in the dictionary asynchronously."
-  (interactive)
-  (let* ((word (dict-line--extract-word))
-         (buffer (get-buffer (buffer-name)))
-         (dir dict-line-dict-directory)) ;; Extract dictionary directory
-    (setq dict-line-word word)
-    (setq dict-line--current-buffer buffer) ;; Need to query the word buffer
-    (when (and word (not (minibufferp)))
-      (dict-line--search-dict-files-async
-       word
-       dir
-       (lambda (dicts)
-         (dict-line--handle-dict-result dicts))))))
+(defun dict-line--ensure-cache-loaded ()
+  "Ensure dictionary and audio caches are loaded.
+Load once per session if cache file exists."
+  (unless (or dict-line--cache-loaded-p
+              (and (> (hash-table-count dict-line--cache) 0)
+                   (> (hash-table-count dict-line--audio-cache) 0)))
+    (if (file-exists-p dict-line-cache-file)
+        (dict-line--load-cache)
+      (message "[dict-line] No cache found. Please run `dict-line-build-cache`"))))
 
 ;;;###autoload
+(defun dict-line-build-cache ()
+  "Build dictionary and audio caches, then persist them."
+  (interactive)
+  (message "[dict-line] Cache building, please wait.....")
+  (dict-line--build-dict-cache)
+  (dict-line--build-audio-cache)
+  (dict-line--save-cache)
+  (message "[dict-line] Cache build successful. Saved to %s" dict-line-cache-file))
+
+
+;; ----------------------------
+;; Search/Play word/dict
+;; ----------------------------
+(defun dict-line--extract-word ()
+  "Extract word or region."
+  (if (use-region-p)
+      (buffer-substring-no-properties (region-beginning) (region-end))
+    (thing-at-point 'word t)))
+
+(defun dict-line--search-word (word)
+  "Lookup WORD in cache (case-insensitive, exact match)."
+  (when word
+    (setq dict-line-word word)
+    (dict-line--ensure-cache-loaded)
+    ;; Case-insensitive search
+    (let ((key (downcase word)))
+      (setq dict-line-dict (gethash key dict-line--cache)))
+    (when dict-line-dict
+      (funcall dict-line-display))
+    (when dict-line-audio
+      (dict-line--play-audio word))))
+
+(defun dict-line--play-audio (word)
+  "Play word audio if available (case-insensitive)."
+  (let* ((key (downcase word))
+         (file (gethash key dict-line--audio-cache)))
+    (when (and file (file-exists-p file))
+      (let ((args (append (split-string dict-line-audio-play-program-arg)
+                          (list file))))
+        ;; BUG: Windows playback audio can cause infinite looping, so kill after 1 second.
+        (if (and (eq system-type 'windows-nt))
+            (let ((proc (apply #'start-process "dict-line-audio" nil
+                               dict-line-audio-play-program args)))
+              (run-at-time "1 sec" nil (lambda (p) (when (process-live-p p) (kill-process p))) proc))
+          (apply #'start-process "dict-line-audio" nil
+                 dict-line-audio-play-program args))))))
+
+;;;###autoload
+(defun dict-line-get-dict ()
+  "Main entry: lookup word at point."
+  (interactive)
+  (let ((word (dict-line--extract-word)))
+    (when (and word (not (minibufferp)))
+      (dict-line--search-word word))))
+
+;; ----------------------------
+;; Save personal dictionary.
+;; ----------------------------
+;;;###autoload
 (defun dict-line-word-save-from-echo ()
-  "Extract the word under the cursor, prompt the user to enter information, and then save 'word': 'Input information' to the last line of the specified file."
+  "Save word under cursor to personal dict file.
+Save to `dict-line-dict-personal-file'"
   (interactive)
   (let* ((word (thing-at-point 'word t))
          (input (read-string (format "Enter information for '%s': " word)))
@@ -213,55 +255,49 @@ Source for `posframe-show` (2) POSHANDLER:
       (with-temp-buffer
         (insert-file-contents dict-line-dict-personal-file)
         (goto-char (point-max))
-        (insert (concat "\n" entry))
+        (insert "\n" entry)
         (write-region (point-min) (point-max) dict-line-dict-personal-file))
-      (message "Save %s to %s" entry dict-line-dict-personal-file))))
-
+      ;; save the word to cache
+      (puthash word input dict-line--cache)
+      (message "Saved %s" entry))))
 
-(defvar-local dict-line--idle-timer nil
-  "Buffer-local idle timer used by `dict-line-mode`.")
+;; ----------------------------
+;; Minor mode
+;; ----------------------------
+(defvar-local dict-line--schedule-idle-timer nil)
 
-(defun dict-line--schedule-lookup ()
-  "Schedule dictionary lookup after `dict-line-idle-time` seconds of idle."
-  ;; Clear the old ones first.
-  (when (timerp dict-line--idle-timer)
-    (cancel-timer dict-line--idle-timer))
-  ;; Reset the idle timer.
-  (setq dict-line--idle-timer
+(defun dict-line--schedule-search ()
+  "Schedule dictionary lookup."
+  (when (timerp dict-line--schedule-idle-timer)
+    (cancel-timer dict-line--schedule-idle-timer))
+  (setq dict-line--schedule-idle-timer
         (run-with-idle-timer dict-line-idle-time nil
-                             #'dict-line-get-dict-async)))
+                             #'dict-line-get-dict)))
 
 ;;;###autoload
 (define-minor-mode dict-line-mode
-  "Minor mode to look up words under the cursor asynchronously."
+  "Minor mode to look up words under the cursor."
   :lighter " Dict"
   :group 'dict-line
   (if dict-line-mode
       (progn
-        ;; Schedule a new idle timer after each command.
-        (add-hook 'post-command-hook #'dict-line--schedule-lookup nil t)
-        ;; Also, add posframe cleanup.
+        (dict-line--ensure-cache-loaded)
+        (add-hook 'post-command-hook #'dict-line--schedule-search nil t)
         (add-hook 'post-command-hook #'dict-line--posframe-delete nil t))
-    ;; cleanup
-    (remove-hook 'post-command-hook #'dict-line--schedule-lookup t)
+    (remove-hook 'post-command-hook #'dict-line--schedule-search t)
     (remove-hook 'post-command-hook #'dict-line--posframe-delete t)
-    (when (timerp dict-line--idle-timer)
-      (cancel-timer dict-line--idle-timer)
-      (setq dict-line--idle-timer nil))))
+    (when (timerp dict-line--schedule-idle-timer)
+      (cancel-timer dict-line--schedule-idle-timer)
+      (setq dict-line--schedule-idle-timer nil))))
 
 (defun dict-line--enable-if-eligible ()
-  "Enable `dict-line-mode` if not in minibuffer."
   (unless (minibufferp)
     (dict-line-mode 1)))
 
 ;;;###autoload
 (define-globalized-minor-mode global-dict-line-mode
-  dict-line-mode
-  dict-line--enable-if-eligible
-  :group 'dict-line
-  :init-value nil
-  :lighter " Dict"
-  "Globalized version of `dict-line-mode`.")
-
+  dict-line-mode dict-line--enable-if-eligible
+  :group 'dict-line)
 
 (provide 'dict-line)
+
