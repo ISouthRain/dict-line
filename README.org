@@ -1,6 +1,7 @@
 # -*- coding: utf-8; -*-
-
- *大部分源码由 ChatGPT-4 模型生成*, [[file:./dict-line.org][提问过程]]
+#+begin_quote
+ ~Warning~ 目前经过了大量重构, 旧用户请无比查看一下使用方式, 虽然变化不大.
+#+end_quote
 
 * 概述
  Emacs 查看字典翻译内容, 并自动播放字典音频文件(可选).
@@ -12,13 +13,15 @@
 [[./preview.gif]]
 
 * 支持的字典列表
-- 下载字典: [[https://github.com/program-in-chinese/vscode_english_chinese_dictionary/tree/master/src/%E8%AF%8D%E5%85%B8%E6%95%B0%E6%8D%AE][vscode_english_chinese_dictionary/src/词典数据 at master · program-in-chinese/vsc...]]
+1. 下载字典: [[https://github.com/program-in-chinese/vscode_english_chinese_dictionary/tree/master/src/%E8%AF%8D%E5%85%B8%E6%95%B0%E6%8D%AE][vscode_english_chinese_dictionary/src/词典数据 at master · program-in-chinese/vsc...]]
+
+  ~Warning~ 请务必删除 ~词形变化.ts~ 文件.
 
 * 配置示例
 #+begin_src emacs-lisp :tangle yes
 (use-package dict-line
   :diminish
-  (dict-line-mode "🗺️")
+  (dict-line-mode global-dict-line-mode)
   :ensure nil
   :load-path "path-to-your/dict-line"
   :defer 2
@@ -33,7 +36,7 @@
   ;; (dict-line-display #'dict-line--message)
   ;; 或者自定义显示方式, 字典内容结果变量: dict-line-word, dict-line-dict
   :config
-  (dict-line-mode t)
+  (global-dict-line-mode t)
   )
 #+end_src
 
@@ -46,27 +49,19 @@
 (setq dict-line-audio t)
 #+end_src
 
-* 参数
-- dict-line-dict-directory
-  字典文件目录, 必须的
-- dict-line-idle-time
-  光标空闲多长开始查找单词,
-  默认: 0.5 秒
-- dict-line-audio
-  播放单词音频文件 t/nil
-- dict-line-audio-root-dir
-  音频文件夹
-- dict-line-audio-program
-  音频文件播放后端程序, 默认: mplayer
-- dict-line-audio-play-program-arg
-  音频播放后端程序参数
-- dict-line-display
-  显示字典内容被调用变量.
-- dict-line-posframe-location
-  使用 posframe 显示字典内容的位置.
+* 定制
+| Variable                         | 描述                                   |
+|----------------------------------+----------------------------------------|
+| dict-line-dict-directory         | 字典文件目录, 必须的                   |
+| dict-line-idle-time              | 光标空闲多长开始查找单词, 默认: 0.5 秒 |
+| dict-line-audio                  | 播放单词音频文件 t/nil                 |
+| dict-line-audio-root-dir         | 音频文件夹                             |
+| dict-line-audio-program          | 音频文件播放后端程序, 默认: mplayer    |
+| dict-line-audio-play-program-arg | 音频播放后端程序参数                   |
+| dict-line-display                | 显示字典内容函数                       |
+| dict-line-posframe-location      | 使用 posframe 显示字典内容的位置.      |
 
-* TODO [2/5]
-- [X] 异步
+* TODO [1/4]
 - [ ] 支持更多 Dict 类型
 - [ ] 外部索引, 例如: ripgre, grep 等等
 - [X] 支持更多显示方式, 例如: posframe, popup, overlay
@@ -81,6 +76,15 @@
 Welcome Pull request.
 
 * ChangLog
+** v0.7.0 重构(重大变更)
+现在查找逻辑: 将 ~*.ts~ 文件做成 hash 缓存起来, 方便以后直接查找, 提高效率.
+
+现在查找结果效率非常高, 比以前更快且不浪费CPU资源, 因为之前虽然使用 async 但是每次查找都要翻遍所有 ts 文件, 尤其在低级电脑 CPU 狂飙, 非常浪费资源而且慢.
+
+移除依赖 ~async~ ~posframe~ , ~posframe~ 由用户主动下载.
+
+** v0.6.1
+修复 monir-mode 问题, 支持 global-dict-line-mode
 ** V0.6
 新增功能: 支持定义 posframe 显示方式.
 ** V0.5
