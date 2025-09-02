@@ -4,7 +4,7 @@
 ;; License: GPL-3.0-or-later
 
 ;; Author: ISouthRain
-;; Version: 0.7
+;; Version: 0.7.0
 ;; Package-Requires: ((emacs "24.2"))
 ;; Keywords: dict
 ;; URL: https://github.com/ISouthRain/dict-line
