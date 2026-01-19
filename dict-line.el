@@ -50,7 +50,9 @@
   :type 'number
   :group 'dict-line)
 
-(defcustom dict-line-audio-play-program "mplayer"
+(defcustom dict-line-audio-play-program (or (executable-find "mplayer")
+                                            (executable-find "mpv")
+                                            (executable-find "mpg123"))
   "Play audio file program."
   :type 'string
   :group 'dict-line)
