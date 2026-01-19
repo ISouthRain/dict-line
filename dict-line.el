@@ -62,27 +62,29 @@
   :type 'string
   :group 'dict-line)
 
-(defcustom dict-line-posframe-location #'posframe-poshandler-point-bottom-left-corner
-  "The location function for displaying the dict-line posframe.
-Option `posframe-show' =>  (2) POSHANDLER"
-  :type '(choice (const nil) function)
-  :group 'dict-line)
-
 (defcustom dict-line-display #'dict-line--message
   "dict-line display function."
   :type '(choice (const nil) function)
   :group 'dict-line)
+
+(defcustom dict-line-posframe-location #'posframe-poshandler-point-bottom-left-corner
+  "The location function for displaying the dict-line posframe.
+Option `posframe-show' => (2) POSHANDLER"
+  :type '(choice (const nil) function)
+  :group 'dict-line)
+
+(defvar-local dict-line--timer nil)
 
 (defvar dict-line--posframe-buffer "*dict-line-posframe*")
 
 (defvar dict-line-word nil
   "Recently searched words.
 From `dict-line--extract-word'")
+
 (defvar dict-line-dict nil
   "Recent dictionary lookup results.
 From `dict-line--search-word'")
 
-;; Ensure only one load.
 (defvar dict-line--cache-loaded-p nil
   "Non-nil if dict-line cache has been loaded in this Emacs session.
 For `dict-line--load-cache'")
@@ -96,16 +98,11 @@ For `dict-line--build-dict-cache'")
 For `dict-line--build-audio-cache'")
 
 
-;; ----------------------------
-;; Display relevant
-;; ----------------------------
 (defun dict-line--dict-convert ()
   "dict-line convert dict txt to display."
   (setq dict-line-dict (replace-regexp-in-string "\\\\\\\\n" "\n" dict-line-dict))
   (setq dict-line-dict (replace-regexp-in-string "\"," "\" " dict-line-dict))
-  (setq dict-line-dict (concat dict-line-word "\n" dict-line-dict))
-  ;; (setq dict-line-dict (substring dict-line-dict 1 -2))
-  )
+  (setq dict-line-dict (concat dict-line-word "\n" dict-line-dict)))
 
 (defun dict-line--message ()
   "Display translation with `message'."
@@ -126,15 +123,12 @@ For `dict-line--build-audio-cache'")
                    :border-width 3
                    :border-color "#ed98cc")))
 
-(defun dict-line--posframe-delete ()
+(defun dict-line--display-delete ()
   "Delete posframe."
   (when (eq dict-line-display #'dict-line--posframe)
     (if (fboundp 'posframe-hide)
         (posframe-hide dict-line--posframe-buffer))))
 
-;; ----------------------------
-;; Cache build/load
-;; ----------------------------
 (defun dict-line--build-dict-cache ()
   "Load all dictionary files into `dict-line--cache-dict'.
 Keys are stored in lowercase for case-insensitive matching."
@@ -176,7 +170,7 @@ Set `dict-line--cache-loaded-p' to t after successful load."
     (setq dict-line--cache-loaded-p t)
     (message "[dict-line] Cache loaded from %s" dict-line-cache-file)))
 
-(defun dict-line--ensure-cache-loaded ()
+(defun dict-line--cache-loaded-check ()
   "Ensure dictionary and audio caches are loaded.
 Load once per session if cache file exists."
   (unless (or dict-line--cache-loaded-p
@@ -190,16 +184,12 @@ Load once per session if cache file exists."
 (defun dict-line-build-cache ()
   "Build dictionary and audio caches, then persist them."
   (interactive)
-  (message "[dict-line] Cache building, please wait.....")
+  (message "[dict-line] Dict Cache building, please wait.....")
   (dict-line--build-dict-cache)
   (dict-line--build-audio-cache)
   (dict-line--save-cache)
-  (message "[dict-line] Cache build successful. Saved to %s" dict-line-cache-file))
-
+  (message "[dict-line] Dict Cache build successful. Saved to %s" dict-line-cache-file))
 
-;; ----------------------------
-;; Search/Play word/dict
-;; ----------------------------
 (defun dict-line--extract-word ()
   "Extract word or region."
   (if (use-region-p)
@@ -210,7 +200,7 @@ Load once per session if cache file exists."
   "Lookup WORD in cache (case-insensitive, exact match)."
   (when word
     (setq dict-line-word word)
-    (dict-line--ensure-cache-loaded)
+    (dict-line--cache-loaded-check)
     ;; Case-insensitive search
     (let ((key (downcase word)))
       (setq dict-line-dict (gethash key dict-line--cache-dict)))
@@ -242,9 +232,6 @@ Load once per session if cache file exists."
     (when (and word (not (minibufferp)))
       (dict-line--search-word word))))
 
-;; ----------------------------
-;; Save personal dictionary.
-;; ----------------------------
 ;;;###autoload
 (defun dict-line-word-save-from-echo ()
   "Save word under cursor to personal dict file.
@@ -263,16 +250,11 @@ Save to `dict-line-dict-personal-file'"
       (puthash word input dict-line--cache-dict)
       (message "Saved %s" entry))))
 
-;; ----------------------------
-;; Minor mode
-;; ----------------------------
-(defvar-local dict-line--schedule-idle-timer nil)
-
-(defun dict-line--schedule-search ()
+(defun dict-line--post-command-hook ()
   "Schedule dictionary lookup."
-  (when (timerp dict-line--schedule-idle-timer)
-    (cancel-timer dict-line--schedule-idle-timer))
-  (setq dict-line--schedule-idle-timer
+  (when (timerp dict-line--timer)
+    (cancel-timer dict-line--timer))
+  (setq dict-line--timer
         (run-with-idle-timer dict-line-idle-time nil
                              #'dict-line-get-dict)))
 
@@ -283,14 +265,14 @@ Save to `dict-line-dict-personal-file'"
   :group 'dict-line
   (if dict-line-mode
       (progn
-        (dict-line--ensure-cache-loaded)
-        (add-hook 'post-command-hook #'dict-line--schedule-search nil t)
-        (add-hook 'post-command-hook #'dict-line--posframe-delete nil t))
-    (remove-hook 'post-command-hook #'dict-line--schedule-search t)
-    (remove-hook 'post-command-hook #'dict-line--posframe-delete t)
-    (when (timerp dict-line--schedule-idle-timer)
-      (cancel-timer dict-line--schedule-idle-timer)
-      (setq dict-line--schedule-idle-timer nil))))
+        (dict-line--cache-loaded-check)
+        (add-hook 'post-command-hook #'dict-line--post-command-hook nil t)
+        (add-hook 'pre-command-hook #'dict-line--display-delete nil t))
+    (remove-hook 'post-command-hook #'dict-line--post-command-hook t)
+    (remove-hook 'pre-command-hook #'dict-line--display-delete t)
+    (when (timerp dict-line--timer)
+      (cancel-timer dict-line--timer)
+      (setq dict-line--timer nil))))
 
 (defun dict-line--enable-if-eligible ()
   (unless (minibufferp)
