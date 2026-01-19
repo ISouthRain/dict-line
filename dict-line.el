@@ -91,7 +91,7 @@ For `dict-line--load-cache'")
   "Hash table cache: word → definition.
 For `dict-line--build-dict-cache'")
 
-(defvar dict-line--audio-cache (make-hash-table :test 'equal)
+(defvar dict-line--cache-audio (make-hash-table :test 'equal)
   "Hash table cache: word → audio-path.
 For `dict-line--build-audio-cache'")
 
@@ -151,13 +151,13 @@ Keys are stored in lowercase for case-insensitive matching."
             (puthash word def dict-line--cache-dict)))))))
 
 (defun dict-line--build-audio-cache ()
-  "Scan audio root directory and build `dict-line--audio-cache'.
+  "Scan audio root directory and build `dict-line--cache-audio'.
 Keys are stored in lowercase for case-insensitive matching."
-  (clrhash dict-line--audio-cache)
+  (clrhash dict-line--cache-audio)
   (when (file-directory-p dict-line-audio-root-dir)
     (dolist (f (directory-files-recursively dict-line-audio-root-dir "\\.mp3$"))
       (let* ((word (downcase (file-name-base f))))
-        (puthash word f dict-line--audio-cache)))))
+        (puthash word f dict-line--cache-audio)))))
 
 (defun dict-line--save-cache ()
   "Persist cache to `dict-line-cache-file'."
@@ -165,7 +165,7 @@ Keys are stored in lowercase for case-insensitive matching."
     (insert ";; Auto-generated dict-line cache\n\n")
     (prin1 `(setq dict-line--cache-dict ',dict-line--cache-dict) (current-buffer))
     (insert "\n\n")
-    (prin1 `(setq dict-line--audio-cache ',dict-line--audio-cache) (current-buffer))))
+    (prin1 `(setq dict-line--cache-audio ',dict-line--cache-audio) (current-buffer))))
 
 (defun dict-line--load-cache ()
   "Load cache from `dict-line-cache-file' if it exists.
@@ -180,8 +180,8 @@ Set `dict-line--cache-loaded-p' to t after successful load."
   "Ensure dictionary and audio caches are loaded.
 Load once per session if cache file exists."
   (unless (or dict-line--cache-loaded-p
-                   (> (hash-table-count dict-line--audio-cache) 0)))
               (and (> (hash-table-count dict-line--cache-dict) 0)
+                   (> (hash-table-count dict-line--cache-audio) 0)))
     (if (file-exists-p dict-line-cache-file)
         (dict-line--load-cache)
       (message "[dict-line] No cache found. Please run `dict-line-build-cache`"))))
@@ -222,7 +222,7 @@ Load once per session if cache file exists."
 (defun dict-line--play-audio (word)
   "Play word audio if available (case-insensitive)."
   (let* ((key (downcase word))
-         (file (gethash key dict-line--audio-cache)))
+         (file (gethash key dict-line--cache-audio)))
     (when (and file (file-exists-p file))
       (let ((args (append (split-string dict-line-audio-play-program-arg)
                           (list file))))
