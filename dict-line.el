@@ -251,12 +251,13 @@ Save to `dict-line-dict-personal-file'"
       (message "Saved %s" entry))))
 
 (defun dict-line--post-command-hook ()
-  "Schedule dictionary lookup."
-  (when (timerp dict-line--timer)
+  "Schedule dictionary lookup after idle."
+  (when dict-line--timer
     (cancel-timer dict-line--timer))
   (setq dict-line--timer
-        (run-with-idle-timer dict-line-idle-time nil
-                             #'dict-line-get-dict)))
+        (run-with-idle-timer
+         dict-line-idle-time nil
+         #'dict-line-get-dict)))
 
 ;;;###autoload
 (define-minor-mode dict-line-mode
@@ -264,23 +265,21 @@ Save to `dict-line-dict-personal-file'"
   :lighter " Dict"
   :group 'dict-line
   (if dict-line-mode
-      (progn
+      (if (minibufferp)
+          (setq dict-line-mode nil)
         (dict-line--cache-loaded-check)
         (add-hook 'post-command-hook #'dict-line--post-command-hook nil t)
-        (add-hook 'pre-command-hook #'dict-line--display-delete nil t))
+        (add-hook 'pre-command-hook  #'dict-line--display-delete nil t))
     (remove-hook 'post-command-hook #'dict-line--post-command-hook t)
-    (remove-hook 'pre-command-hook #'dict-line--display-delete t)
+    (remove-hook 'pre-command-hook  #'dict-line--display-delete t)
     (when (timerp dict-line--timer)
       (cancel-timer dict-line--timer)
       (setq dict-line--timer nil))))
 
-(defun dict-line--enable-if-eligible ()
-  (unless (minibufferp)
-    (dict-line-mode 1)))
-
 ;;;###autoload
 (define-globalized-minor-mode global-dict-line-mode
-  dict-line-mode dict-line--enable-if-eligible
+  dict-line-mode
+  dict-line-mode
   :group 'dict-line)
 
 (provide 'dict-line)
