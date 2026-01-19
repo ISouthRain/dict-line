@@ -1,6 +1,6 @@
 # -*- coding: utf-8; -*-
 #+begin_quote
- ~Warning~ 目前经过了大量重构, 旧用户请无比查看一下使用方式, 虽然变化不大.
+ ~Warning~ 目前经过了大量重构, 旧用户请务必查看一下使用方式, 虽然变化不大.
 #+end_quote
 
 * 概述
@@ -76,6 +76,9 @@
 Welcome Pull request.
 
 * ChangLog
+** v0.7.1
+优化各种变量名, 优化 dict-line-mode 执行逻辑
+
 ** v0.7.0 重构(重大变更)
 现在查找逻辑: 将 ~*.ts~ 文件做成 hash 缓存起来, 方便以后直接查找, 提高效率.
 
