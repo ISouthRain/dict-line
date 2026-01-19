@@ -87,7 +87,7 @@ From `dict-line--search-word'")
   "Non-nil if dict-line cache has been loaded in this Emacs session.
 For `dict-line--load-cache'")
 
-(defvar dict-line--cache (make-hash-table :test 'equal)
+(defvar dict-line--cache-dict (make-hash-table :test 'equal)
   "Hash table cache: word → definition.
 For `dict-line--build-dict-cache'")
 
@@ -136,9 +136,9 @@ For `dict-line--build-audio-cache'")
 ;; Cache build/load
 ;; ----------------------------
 (defun dict-line--build-dict-cache ()
-  "Load all dictionary files into `dict-line--cache'.
+  "Load all dictionary files into `dict-line--cache-dict'.
 Keys are stored in lowercase for case-insensitive matching."
-  (clrhash dict-line--cache)
+  (clrhash dict-line--cache-dict)
   (let ((files (directory-files dict-line-dict-directory t "\\.ts$")))
     (dolist (file files)
       (with-temp-buffer
@@ -148,7 +148,7 @@ Keys are stored in lowercase for case-insensitive matching."
         (while (re-search-forward "\"\\([^\"[:space:]]+\\)\":\"\\([^\"]+\\)\"" nil t)
           (let ((word (downcase (match-string 1)))
                 (def (match-string 2)))
-            (puthash word def dict-line--cache)))))))
+            (puthash word def dict-line--cache-dict)))))))
 
 (defun dict-line--build-audio-cache ()
   "Scan audio root directory and build `dict-line--audio-cache'.
@@ -163,7 +163,7 @@ Keys are stored in lowercase for case-insensitive matching."
   "Persist cache to `dict-line-cache-file'."
   (with-temp-file dict-line-cache-file
     (insert ";; Auto-generated dict-line cache\n\n")
-    (prin1 `(setq dict-line--cache ',dict-line--cache) (current-buffer))
+    (prin1 `(setq dict-line--cache-dict ',dict-line--cache-dict) (current-buffer))
     (insert "\n\n")
     (prin1 `(setq dict-line--audio-cache ',dict-line--audio-cache) (current-buffer))))
 
@@ -180,8 +180,8 @@ Set `dict-line--cache-loaded-p' to t after successful load."
   "Ensure dictionary and audio caches are loaded.
 Load once per session if cache file exists."
   (unless (or dict-line--cache-loaded-p
-              (and (> (hash-table-count dict-line--cache) 0)
                    (> (hash-table-count dict-line--audio-cache) 0)))
+              (and (> (hash-table-count dict-line--cache-dict) 0)
     (if (file-exists-p dict-line-cache-file)
         (dict-line--load-cache)
       (message "[dict-line] No cache found. Please run `dict-line-build-cache`"))))
@@ -213,7 +213,7 @@ Load once per session if cache file exists."
     (dict-line--ensure-cache-loaded)
     ;; Case-insensitive search
     (let ((key (downcase word)))
-      (setq dict-line-dict (gethash key dict-line--cache)))
+      (setq dict-line-dict (gethash key dict-line--cache-dict)))
     (when dict-line-dict
       (funcall dict-line-display))
     (when dict-line-audio
@@ -260,7 +260,7 @@ Save to `dict-line-dict-personal-file'"
         (insert "\n" entry)
         (write-region (point-min) (point-max) dict-line-dict-personal-file))
       ;; save the word to cache
-      (puthash word input dict-line--cache)
+      (puthash word input dict-line--cache-dict)
       (message "Saved %s" entry))))
 
 ;; ----------------------------
