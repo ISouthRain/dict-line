@@ -1,11 +1,11 @@
-;;; dict-line --- View dict in Emacs.  -*- coding: utf-8; lexical-binding: t; -*-
+;;; dict-line.el --- View dict in Emacs.  -*- coding: utf-8; lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 Free Software Foundation, Inc.
 ;; License: GPL-3.0-or-later
 
 ;; Author: ISouthRain
 ;; Version: 0.7.1
-;; Package-Requires: ((emacs "24.2"))
+;; Package-Requires: ((emacs "29.1"))
 ;; Keywords: dict
 ;; URL: https://github.com/ISouthRain/dict-line
 
@@ -40,8 +40,8 @@
   :group 'dict-line)
 
 (defcustom dict-line-cache-file
-  (expand-file-name ".dict-line-cache.el" user-emacs-directory)
-  "File to persist dict-line cache across Emacs sessions."
+  (expand-file-name ".dict-line-cache.sqlite" user-emacs-directory)
+  "SQLite database file used to persist dict-line cache across Emacs sessions."
   :type 'file
   :group 'dict-line)
 
@@ -85,19 +85,13 @@ From `dict-line--extract-word'")
   "Recent dictionary lookup results.
 From `dict-line--search-word'")
 
-(defvar dict-line--cache-loaded-p nil
-  "Non-nil if dict-line cache has been loaded in this Emacs session.
-For `dict-line--load-cache'")
+(defvar dict-line--cache-db nil
+  "SQLite connection used by dict-line cache.")
 
-(defvar dict-line--cache-dict (make-hash-table :test 'equal)
-  "Hash table cache: word → definition.
-For `dict-line--build-dict-cache'")
+(defconst dict-line--sqlite-batch-size 500
+  "Number of rows written per sqlite batch during cache rebuilds.")
 
-(defvar dict-line--cache-audio (make-hash-table :test 'equal)
-  "Hash table cache: word → audio-path.
-For `dict-line--build-audio-cache'")
 
-
 (defun dict-line--dict-convert ()
   "dict-line convert dict txt to display."
   (setq dict-line-dict (replace-regexp-in-string "\\\\\\\\n" "\n" dict-line-dict))
@@ -128,55 +122,167 @@ For `dict-line--build-audio-cache'")
   (when (eq dict-line-display #'dict-line--posframe)
     (if (fboundp 'posframe-hide)
         (posframe-hide dict-line--posframe-buffer))))
-
+
+(defun dict-line--sqlite-available-check ()
+  "Signal an error when Emacs SQLite support is unavailable."
+  (unless (sqlite-available-p)
+    (user-error "[dict-line] Current Emacs was built without sqlite support")))
+
+(defun dict-line--ensure-cache-db ()
+  "Open sqlite cache and ensure required tables exist."
+  (dict-line--sqlite-available-check)
+  (unless (sqlitep dict-line--cache-db)
+    (make-directory (file-name-directory dict-line-cache-file) t)
+    (setq dict-line--cache-db (sqlite-open dict-line-cache-file))
+    (sqlite-execute
+     dict-line--cache-db
+     "CREATE TABLE IF NOT EXISTS dict_cache (
+        word TEXT PRIMARY KEY,
+        definition TEXT NOT NULL
+      )")
+    (sqlite-execute
+     dict-line--cache-db
+     "CREATE TABLE IF NOT EXISTS audio_cache (
+        word TEXT PRIMARY KEY,
+        path TEXT NOT NULL
+      )"))
+  dict-line--cache-db)
+
+(defun dict-line--close-cache-db ()
+  "Close sqlite cache connection."
+  (when (sqlitep dict-line--cache-db)
+    (sqlite-close dict-line--cache-db)
+    (setq dict-line--cache-db nil)))
+
+(defun dict-line--cache-exists-p ()
+  "Return non-nil when the sqlite cache file exists."
+  (file-exists-p dict-line-cache-file))
+
+(defun dict-line--sqlite-first-column (rows)
+  "Return the first column from ROWS."
+  (let ((row (car rows)))
+    (cond
+     ((vectorp row) (aref row 0))
+     ((consp row) (car row))
+     (t nil))))
+
+(defun dict-line--sqlite-batch-values (rows)
+  "Flatten ROWS into a single vector for sqlite parameter binding."
+  (apply #'vconcat rows))
+
+(defun dict-line--sqlite-flush-batch (db table value-column rows)
+  "Insert ROWS into TABLE using VALUE-COLUMN in a single statement."
+  (when rows
+    (let ((placeholders (mapconcat (lambda (_) "(?, ?)") rows ", ")))
+      (sqlite-execute
+       db
+       (format "INSERT OR REPLACE INTO %s(word, %s) VALUES %s"
+               table value-column placeholders)
+       (dict-line--sqlite-batch-values rows)))))
+
+(defun dict-line--sqlite-call-with-fast-bulk-mode (db fn)
+  "Call FN with DB configured for bulk writes in a single transaction."
+  (let* ((old-synchronous (dict-line--sqlite-first-column
+                           (sqlite-select db "PRAGMA synchronous")))
+         (old-temp-store (dict-line--sqlite-first-column
+                          (sqlite-select db "PRAGMA temp_store")))
+         (committed nil))
+    (unwind-protect
+        (progn
+          (sqlite-execute db "PRAGMA synchronous = OFF")
+          (sqlite-execute db "PRAGMA temp_store = MEMORY")
+          (sqlite-execute db "BEGIN IMMEDIATE")
+          (funcall fn)
+          (sqlite-execute db "COMMIT")
+          (setq committed t))
+      (unless committed
+        (ignore-errors (sqlite-execute db "ROLLBACK")))
+      (ignore-errors
+        (sqlite-execute db (format "PRAGMA synchronous = %s" old-synchronous)))
+      (ignore-errors
+        (sqlite-execute db (format "PRAGMA temp_store = %s" old-temp-store))))))
+
+(defun dict-line--sqlite-get-dict (word)
+  "Return definition for WORD from sqlite cache."
+  (dict-line--sqlite-first-column
+   (sqlite-select
+    (dict-line--ensure-cache-db)
+    "SELECT definition FROM dict_cache WHERE word = ?"
+    (vector word))))
+
+(defun dict-line--sqlite-get-audio (word)
+  "Return audio path for WORD from sqlite cache."
+  (dict-line--sqlite-first-column
+   (sqlite-select
+    (dict-line--ensure-cache-db)
+    "SELECT path FROM audio_cache WHERE word = ?"
+    (vector word))))
+
 (defun dict-line--build-dict-cache ()
-  "Load all dictionary files into `dict-line--cache-dict'.
+  "Load all dictionary files into sqlite cache.
 Keys are stored in lowercase for case-insensitive matching."
-  (clrhash dict-line--cache-dict)
-  (let ((files (directory-files dict-line-dict-directory t "\\.ts$")))
-    (dolist (file files)
-      (with-temp-buffer
-        (insert-file-contents file)
-        (goto-char (point-min))
-        ;; Exact match "word":"definition"
-        (while (re-search-forward "\"\\([^\"[:space:]]+\\)\":\"\\([^\"]+\\)\"" nil t)
-          (let ((word (downcase (match-string 1)))
-                (def (match-string 2)))
-            (puthash word def dict-line--cache-dict)))))))
+  (let ((db (dict-line--ensure-cache-db)))
+    (dict-line--sqlite-call-with-fast-bulk-mode
+     db
+     (lambda ()
+       (sqlite-execute db "DELETE FROM dict_cache")
+       (let ((files (directory-files dict-line-dict-directory t "\\.ts$"))
+             (rows nil)
+             (row-count 0))
+         (dolist (file files)
+           (with-temp-buffer
+             (insert-file-contents file)
+             (goto-char (point-min))
+             ;; Exact match "word":"definition"
+             (while (re-search-forward "\"\\([^\"[:space:]]+\\)\":\"\\([^\"]+\\)\"" nil t)
+               (push (vector (downcase (match-string 1))
+                             (match-string 2))
+                     rows)
+               (setq row-count (1+ row-count))
+               (when (>= row-count dict-line--sqlite-batch-size)
+                 (dict-line--sqlite-flush-batch
+                  db "dict_cache" "definition" (nreverse rows))
+                 (setq rows nil
+                       row-count 0)))))
+         (dict-line--sqlite-flush-batch
+          db "dict_cache" "definition" (nreverse rows)))))))
 
 (defun dict-line--build-audio-cache ()
-  "Scan audio root directory and build `dict-line--cache-audio'.
+  "Scan audio root directory and build sqlite audio cache.
 Keys are stored in lowercase for case-insensitive matching."
-  (clrhash dict-line--cache-audio)
-  (when (file-directory-p dict-line-audio-root-dir)
-    (dolist (f (directory-files-recursively dict-line-audio-root-dir "\\.mp3$"))
-      (let* ((word (downcase (file-name-base f))))
-        (puthash word f dict-line--cache-audio)))))
+  (let ((db (dict-line--ensure-cache-db)))
+    (dict-line--sqlite-call-with-fast-bulk-mode
+     db
+     (lambda ()
+       (sqlite-execute db "DELETE FROM audio_cache")
+       (when (file-directory-p dict-line-audio-root-dir)
+         (let ((rows nil)
+               (row-count 0))
+           (dolist (file (directory-files-recursively dict-line-audio-root-dir "\\.mp3$"))
+             (push (vector (downcase (file-name-base file)) file) rows)
+             (setq row-count (1+ row-count))
+             (when (>= row-count dict-line--sqlite-batch-size)
+               (dict-line--sqlite-flush-batch
+                db "audio_cache" "path" (nreverse rows))
+               (setq rows nil
+                     row-count 0)))
+           (dict-line--sqlite-flush-batch
+            db "audio_cache" "path" (nreverse rows))))))))
 
 (defun dict-line--save-cache ()
-  "Persist cache to `dict-line-cache-file'."
-  (with-temp-file dict-line-cache-file
-    (insert ";; Auto-generated dict-line cache\n\n")
-    (prin1 `(setq dict-line--cache-dict ',dict-line--cache-dict) (current-buffer))
-    (insert "\n\n")
-    (prin1 `(setq dict-line--cache-audio ',dict-line--cache-audio) (current-buffer))))
+  "Ensure the sqlite cache database is initialized."
+  (dict-line--ensure-cache-db))
 
 (defun dict-line--load-cache ()
-  "Load cache from `dict-line-cache-file' if it exists.
-Set `dict-line--cache-loaded-p' to t after successful load."
-  (when (and (file-exists-p dict-line-cache-file)
-             (not dict-line--cache-loaded-p))
-    (load-file dict-line-cache-file)
-    (setq dict-line--cache-loaded-p t)
+  "Open cache from `dict-line-cache-file' if it exists."
+  (when (dict-line--cache-exists-p)
+    (dict-line--ensure-cache-db)
     (message "[dict-line] Cache loaded from %s" dict-line-cache-file)))
 
 (defun dict-line--cache-loaded-check ()
-  "Ensure dictionary and audio caches are loaded.
-Load once per session if cache file exists."
-  (unless (or dict-line--cache-loaded-p
-              (and (> (hash-table-count dict-line--cache-dict) 0)
-                   (> (hash-table-count dict-line--cache-audio) 0)))
-    (if (file-exists-p dict-line-cache-file)
+  "Ensure sqlite cache is ready for lookups."
+  (unless (sqlitep dict-line--cache-db)
+    (if (dict-line--cache-exists-p)
         (dict-line--load-cache)
       (message "[dict-line] No cache found. Please run `dict-line-build-cache`"))))
 
@@ -189,7 +295,7 @@ Load once per session if cache file exists."
   (dict-line--build-audio-cache)
   (dict-line--save-cache)
   (message "[dict-line] Dict Cache build successful. Saved to %s" dict-line-cache-file))
-
+
 (defun dict-line--extract-word ()
   "Extract word or region."
   (if (use-region-p)
@@ -201,9 +307,9 @@ Load once per session if cache file exists."
   (when word
     (setq dict-line-word word)
     (dict-line--cache-loaded-check)
-    ;; Case-insensitive search
-    (let ((key (downcase word)))
-      (setq dict-line-dict (gethash key dict-line--cache-dict)))
+    (setq dict-line-dict
+          (and (sqlitep dict-line--cache-db)
+               (dict-line--sqlite-get-dict (downcase word))))
     (when dict-line-dict
       (funcall dict-line-display))
     (when dict-line-audio
@@ -211,8 +317,8 @@ Load once per session if cache file exists."
 
 (defun dict-line--play-audio (word)
   "Play word audio if available (case-insensitive)."
-  (let* ((key (downcase word))
-         (file (gethash key dict-line--cache-audio)))
+  (let ((file (and (sqlitep dict-line--cache-db)
+                   (dict-line--sqlite-get-audio (downcase word)))))
     (when (and file (file-exists-p file))
       (let ((args (append (split-string dict-line-audio-play-program-arg)
                           (list file))))
@@ -231,7 +337,7 @@ Load once per session if cache file exists."
   (let ((word (dict-line--extract-word)))
     (when (and word (not (minibufferp)))
       (dict-line--search-word word))))
-
+
 ;;;###autoload
 (defun dict-line-word-save-from-echo ()
   "Save word under cursor to personal dict file.
@@ -246,10 +352,12 @@ Save to `dict-line-dict-personal-file'"
         (goto-char (point-max))
         (insert "\n" entry)
         (write-region (point-min) (point-max) dict-line-dict-personal-file))
-      ;; save the word to cache
-      (puthash word input dict-line--cache-dict)
+      (sqlite-execute
+       (dict-line--ensure-cache-db)
+       "INSERT OR REPLACE INTO dict_cache(word, definition) VALUES (?, ?)"
+       (vector (downcase word) input))
       (message "Saved %s" entry))))
-
+
 (defun dict-line--post-command-hook ()
   "Schedule dictionary lookup after idle."
   (when dict-line--timer
@@ -269,9 +377,9 @@ Save to `dict-line-dict-personal-file'"
           (setq dict-line-mode nil)
         (dict-line--cache-loaded-check)
         (add-hook 'post-command-hook #'dict-line--post-command-hook nil t)
-        (add-hook 'pre-command-hook  #'dict-line--display-delete nil t))
+        (add-hook 'pre-command-hook #'dict-line--display-delete nil t))
     (remove-hook 'post-command-hook #'dict-line--post-command-hook t)
-    (remove-hook 'pre-command-hook  #'dict-line--display-delete t)
+    (remove-hook 'pre-command-hook #'dict-line--display-delete t)
     (when (timerp dict-line--timer)
       (cancel-timer dict-line--timer)
       (setq dict-line--timer nil))))
@@ -282,5 +390,6 @@ Save to `dict-line-dict-personal-file'"
   dict-line-mode
   :group 'dict-line)
 
-(provide 'dict-line)
+(add-hook 'kill-emacs-hook #'dict-line--close-cache-db)
 
+(provide 'dict-line)
