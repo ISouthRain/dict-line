@@ -19,12 +19,14 @@
   "Emacs dictionary lookup on cursor movement."
   :group 'tools)
 
-(defcustom dict-line-dict-directory "~/my-dict/"
+(defcustom dict-line-dict-directory
+  (expand-file-name "dict/" (file-name-directory load-file-name))
   "The directory where .ts dictionary files are stored."
   :type 'directory
   :group 'dict-line)
 
-(defcustom dict-line-dict-personal-file "~/my-dict/my-dict.ts"
+(defcustom dict-line-dict-personal-file
+  (expand-file-name "dict/Mydict.ts" (file-name-directory load-file-name))
   "Personal dict file."
   :type 'string
   :group 'dict-line)
