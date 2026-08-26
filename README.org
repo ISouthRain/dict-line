@@ -12,11 +12,6 @@
  *Posframe*
 [[./preview.gif]]
 
-* 支持的字典列表
-1. 下载字典: [[https://github.com/program-in-chinese/vscode_english_chinese_dictionary/tree/master/src/%E8%AF%8D%E5%85%B8%E6%95%B0%E6%8D%AE][vscode_english_chinese_dictionary/src/词典数据 at master · program-in-chinese/vsc...]]
-
-  ~Warning~ 请务必删除 ~词形变化.ts~ 文件.
-
 * 配置示例
 #+begin_src emacs-lisp :tangle yes
 (use-package dict-line
@@ -28,8 +23,6 @@
   :custom
   ;; (dict-line-audio t);; 自动播放音频
   ;; (dict-line-audio-root-dir "~/your/pronunciations/");; 音频目录
-  (dict-line-dict-directory "~/your/dict/");; 字典文件目录
-  (dict-line-dict-personal-file "~/your/dict/Mydict.ts");; 手动添加字典文件, M-x dict-line-word-save-from-echo
   ;; 显示方式
   (dict-line-display #'dict-line--posframe);; 显示依赖 posframe.el
   ;; 或者使用 message 显示
